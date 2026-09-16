@@ -2,111 +2,151 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { WireframeTube } from "@/components/WireframeTube";
-import { PixelArrow } from "@/components/PixelArrow";
-import { ProcessGraph } from "@/components/ProcessGraph";
+import { Pipeline } from "@/components/Pipeline";
+import { StatusBadge } from "@/components/StatusBadge";
 
 export default function LandingPage() {
   return (
-    <div>
-      {/* Hero — black field, headline bottom-left, tube right */}
+    <div style={{ position: "relative", flex: 1 }}>
       <section
         style={{
-          minHeight: "72vh",
           position: "relative",
-          display: "flex",
-          alignItems: "flex-end",
+          display: "grid",
+          gap: 48,
+          padding: "clamp(56px, 9vw, 110px) clamp(16px, 4vw, 48px) clamp(48px, 8vw, 88px)",
+          maxWidth: 1180,
+          margin: "0 auto",
         }}
+        className="landing-grid"
       >
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            right: "-8%",
-          }}
-        >
-          <WireframeTube />
-        </div>
-
-        <div
-          style={{
-            position: "relative",
-            zIndex: 1,
-            maxWidth: 640,
-            padding: "0 clamp(16px, 4vw, 48px) clamp(40px, 6vw, 64px)",
-          }}
-        >
+        <div style={{ maxWidth: 620 }}>
           <motion.h1
-            initial={{ opacity: 0, y: 14 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, ease: "easeOut" }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="display"
             style={{
-              fontSize: "clamp(2.4rem, 6.4vw, 4.6rem)",
-              lineHeight: 0.96,
-              letterSpacing: "-0.03em",
-              fontWeight: 600,
-              color: "var(--ink-on-a)",
+              fontSize: "clamp(2.2rem, 4.6vw, 3.4rem)",
+              lineHeight: 1.05,
+              color: "var(--c-photon)",
               margin: 0,
             }}
           >
-            Bind the tool.
-            <br />
-            Then let the agent in.
+            Bind a tool at a commit. Seal it before the agent can call it.
           </motion.h1>
 
           <motion.p
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.25 }}
-            className="mono"
-            style={{ color: "var(--mute)", fontSize: 13, marginTop: 18, maxWidth: 400, lineHeight: 1.6 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+            style={{ color: "var(--c-chassis)", fontSize: 15, marginTop: 20, maxWidth: 480, lineHeight: 1.6 }}
           >
-            A commit SHA, a policy, live evidence, and consensus — sealed with an expiry.
+            A pinned SHA, a scoped claim, live evidence, and validator consensus —
+            finalized on GenLayer with an expiry.
           </motion.p>
 
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.42 }}
-            style={{ marginTop: 30 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+            style={{ marginTop: 28, display: "flex", gap: 12, flexWrap: "wrap" }}
           >
-            <Link href="/register" className="mono tb-cta text-sm" style={{ fontSize: 14 }}>
+            <Link href="/register" className="gl-btn gl-btn-primary">
               Register a tool
-              <PixelArrow size={14} />
+            </Link>
+            <Link href="/registry" className="gl-btn gl-btn-secondary">
+              Browse the registry
             </Link>
           </motion.div>
         </div>
 
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.7 }}
-          className="mono"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.15 }}
+          className="gl-card"
           style={{
-            position: "absolute",
-            right: "clamp(16px, 4vw, 32px)",
-            bottom: 18,
-            fontSize: 10,
-            letterSpacing: "0.2em",
-            color: "var(--mute)",
-            zIndex: 1,
+            position: "relative",
+            padding: 24,
+            maxWidth: 440,
+            overflow: "hidden",
           }}
         >
-          SCROLL TO EXPLORE ↓
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: "-40% -20% auto auto",
+              width: 320,
+              height: 320,
+              background: "var(--c-cobalt)",
+              opacity: 0.08,
+              filter: "blur(80px)",
+              borderRadius: "50%",
+              pointerEvents: "none",
+            }}
+          />
+
+          <div style={{ position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span className="mono" style={{ fontSize: 11, letterSpacing: "0.08em", color: "var(--c-asphalt)" }}>
+              TOOL CERTIFICATE
+            </span>
+            <StatusBadge value="SEALED" />
+          </div>
+
+          <p className="display" style={{ position: "relative", fontSize: 22, color: "var(--c-photon)", margin: "18px 0 0" }}>
+            acme/payments-mcp
+          </p>
+
+          <div style={{ position: "relative", marginTop: 18 }}>
+            <span className="gl-label">Commit</span>
+            <span className="mono" style={{ fontSize: 14, color: "var(--c-chassis)" }}>
+              1a2b3c4d
+            </span>
+          </div>
+
+          <div style={{ position: "relative", height: 1, background: "rgba(255,255,255,0.08)", margin: "18px 0" }} />
+
+          <div style={{ position: "relative", display: "flex", justifyContent: "space-between" }}>
+            <div>
+              <span className="gl-label">Policy</span>
+              <span className="mono" style={{ fontSize: 14, color: "var(--c-photon)" }}>
+                general
+              </span>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <span className="gl-label">Expiry</span>
+              <span className="mono" style={{ fontSize: 14, color: "var(--c-photon)" }}>
+                14d remaining
+              </span>
+            </div>
+          </div>
         </motion.div>
       </section>
 
-      {/* Process — five nodes on one lime bezier */}
       <section
         style={{
-          padding: "clamp(48px, 8vw, 96px) clamp(16px, 4vw, 48px) clamp(64px, 10vw, 110px)",
-          background: "var(--field-a)",
+          padding: "0 clamp(16px, 4vw, 48px) clamp(64px, 9vw, 96px)",
+          maxWidth: 1180,
+          margin: "0 auto",
+          width: "100%",
         }}
       >
-        <div style={{ maxWidth: 980, margin: "0 auto" }}>
-          <ProcessGraph />
-        </div>
+        <div style={{ height: 1, background: "rgba(255,255,255,0.08)", marginBottom: 40 }} />
+        <Pipeline activeIndex={4} />
       </section>
+
+      <style jsx>{`
+        .landing-grid {
+          grid-template-columns: 1fr;
+        }
+        @media (min-width: 860px) {
+          .landing-grid {
+            grid-template-columns: 1fr auto;
+            align-items: center;
+          }
+        }
+      `}</style>
     </div>
   );
 }

@@ -33,52 +33,48 @@ export function TxLifecycle({
   const currentIndex = STEPS.findIndex((s) => s.key === stage);
 
   return (
-    <div
-      className="mono text-xs border"
-      style={{ borderColor: "var(--lime)", padding: 16, marginTop: 16 }}
-    >
-      <div className="flex flex-wrap gap-4 mb-3">
+    <div className="gl-card mono text-xs" style={{ padding: 16, marginTop: 20 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginBottom: 12 }}>
         {STEPS.map((s, i) => {
           const done = currentIndex > i || stage === "finalized";
           const active = s.key === stage;
+          const color = stage === "error" && active ? "var(--c-error)" : "var(--c-cobalt)";
           return (
-            <div key={s.key} className="flex items-center gap-2">
+            <div key={s.key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <motion.span
                 animate={{
-                  backgroundColor: done || active ? "var(--lime)" : "transparent",
-                  scale: active && stage !== "finalized" ? [1, 1.3, 1] : 1,
+                  backgroundColor: done || active ? color : "transparent",
+                  scale: active && stage !== "finalized" ? [1, 1.25, 1] : 1,
                 }}
                 transition={
                   active && stage !== "finalized"
                     ? { duration: 1, repeat: Infinity, repeatType: "loop" }
-                    : { duration: 0.3 }
+                    : { duration: 0.2 }
                 }
                 style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: 8,
-                  border: "1px solid var(--lime)",
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  border: `1px solid ${done || active ? color : "var(--c-asphalt)"}`,
                   display: "inline-block",
                 }}
               />
-              <span style={{ opacity: done || active ? 1 : 0.4 }}>{s.label}</span>
+              <span style={{ color: done || active ? "var(--c-photon)" : "var(--c-asphalt)" }}>{s.label}</span>
             </div>
           );
         })}
       </div>
 
       {stage === "estimating" && (
-        <p style={{ opacity: 0.8 }}>
+        <p style={{ color: "var(--c-chassis)" }}>
           Estimated fee for <b>{functionName}</b>: {fee.estimatedGen} GEN — {fee.note}
         </p>
       )}
-      {stage === "error" && (
-        <p style={{ color: "#ff6b6b" }}>Error: {error ?? "transaction failed"}</p>
-      )}
+      {stage === "error" && <p style={{ color: "var(--c-error)" }}>Error: {error ?? "transaction failed"}</p>}
       {txHash && (
-        <p className="mt-2">
+        <p style={{ marginTop: 8, color: "var(--c-chassis)" }}>
           tx:{" "}
-          <a href={explorerTxUrl(txHash)} target="_blank" rel="noreferrer" style={{ color: "var(--lime)" }}>
+          <a href={explorerTxUrl(txHash)} target="_blank" rel="noreferrer" style={{ color: "var(--c-cobalt)" }}>
             {txHash.slice(0, 10)}...{txHash.slice(-6)} ↗
           </a>
         </p>

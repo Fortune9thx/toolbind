@@ -4,10 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { writeContract, type TxStage } from "@/lib/genlayer";
 import { TxLifecycle } from "@/components/TxLifecycle";
-import { PerspectiveGrid } from "@/components/PerspectiveGrid";
-import { PixelArrow } from "@/components/PixelArrow";
 
-const POLICIES = ["general", "mcp-safe", "payments-safe"];
+const POLICIES = [
+  { value: "general", label: "General" },
+  { value: "mcp-safe", label: "Restricted" },
+  { value: "payments-safe", label: "Internal" },
+];
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -38,6 +40,7 @@ export default function RegisterPage() {
       );
       const newId = typeof result === "string" ? result : (result as any)?.data ?? null;
       setToolId(newId);
+      if (newId) router.push(`/tools/${newId}`);
     } catch {
       // handled via onError
     }
@@ -46,125 +49,133 @@ export default function RegisterPage() {
   const busy = stage !== "idle" && stage !== "finalized" && stage !== "error";
 
   return (
-    <div style={{ position: "relative", flex: 1 }}>
-      <PerspectiveGrid />
+    <div
+      style={{
+        flex: 1,
+        padding: "clamp(40px, 6vw, 72px) clamp(16px, 4vw, 48px) 80px",
+        maxWidth: 720,
+        margin: "0 auto",
+        width: "100%",
+      }}
+    >
+      <h1 className="display" style={{ fontSize: "clamp(1.8rem, 4vw, 2.4rem)", color: "var(--c-photon)", margin: 0 }}>
+        Register a tool
+      </h1>
+      <p style={{ color: "var(--c-chassis)", fontSize: 14, marginTop: 10 }}>
+        Pin a GitHub repo at a commit. Anyone can seal it afterward.
+      </p>
 
-      <div
-        style={{
-          position: "relative",
-          zIndex: 1,
-          padding: "clamp(32px, 6vw, 64px) clamp(16px, 4vw, 48px) 80px",
-          maxWidth: 980,
-          margin: "0 auto",
-        }}
-      >
-        <h1
-          style={{
-            fontSize: "clamp(2.4rem, 7vw, 4.8rem)",
-            fontWeight: 600,
-            letterSpacing: "-0.03em",
-            color: "var(--ink-on-b)",
-            margin: 0,
-            lineHeight: 0.98,
-            display: "flex",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: "0.32em",
-          }}
-        >
-          <span>Seal it</span>
-          <PixelArrow size={30} />
-          <span style={{ color: "var(--lime-hot)" }}>Seal it</span>
-        </h1>
-        <p className="mono" style={{ color: "var(--mute)", fontSize: 13, marginTop: 16 }}>
-          Register a tool at a pinned commit. Anyone can seal it afterward.
-        </p>
-
-        <form onSubmit={onSubmit} style={{ marginTop: 40, display: "grid", gap: 24, maxWidth: 560 }}>
-          <label>
-            <span className="hr-label">Repo (github.com URL)</span>
-            <input
-              className="mono hr-field"
-              required
-              placeholder="https://github.com/acme/mcp-tool"
-              value={repo}
-              onChange={(e) => setRepo(e.target.value)}
-            />
+      <form onSubmit={onSubmit} className="gl-card" style={{ marginTop: 28, padding: 28, display: "grid", gap: 20 }}>
+        <div>
+          <label htmlFor="repo" className="gl-label">
+            Repo
           </label>
-          <label>
-            <span className="hr-label">Commit SHA</span>
-            <input
-              className="mono hr-field"
-              required
-              placeholder="abc1234"
-              value={sha}
-              onChange={(e) => setSha(e.target.value)}
-            />
+          <input
+            id="repo"
+            className="gl-input mono"
+            required
+            placeholder="https://github.com/acme/payments-mcp"
+            value={repo}
+            onChange={(e) => setRepo(e.target.value)}
+          />
+        </div>
+        <div>
+          <label htmlFor="sha" className="gl-label">
+            Commit SHA
           </label>
-          <label>
-            <span className="hr-label">Claims</span>
-            <textarea
-              className="mono hr-field"
-              required
-              rows={3}
-              placeholder="What this tool claims to do, and how it's scoped or made safe"
-              value={claims}
-              onChange={(e) => setClaims(e.target.value)}
-            />
+          <input
+            id="sha"
+            className="gl-input mono"
+            required
+            placeholder="8f3c1a2b9d4e"
+            value={sha}
+            onChange={(e) => setSha(e.target.value)}
+          />
+        </div>
+        <div>
+          <label htmlFor="claim" className="gl-label">
+            Claim
           </label>
-          <label>
-            <span className="hr-label">Live endpoint (optional)</span>
-            <input
-              className="mono hr-field"
-              placeholder="https://api.acme.dev/health"
-              value={endpoint}
-              onChange={(e) => setEndpoint(e.target.value)}
-            />
+          <textarea
+            id="claim"
+            className="gl-input"
+            required
+            rows={3}
+            placeholder="Read-only MCP server for Stripe payment status. No write methods. Scoped to a single merchant account."
+            value={claims}
+            onChange={(e) => setClaims(e.target.value)}
+          />
+          <p style={{ color: "var(--c-asphalt)", fontSize: 12, marginTop: 6 }}>
+            What this tool does, how it is scoped, and why an agent can treat it as safe.
+          </p>
+        </div>
+        <div>
+          <label htmlFor="endpoint" className="gl-label">
+            Live endpoint <span style={{ color: "var(--c-asphalt)" }}>optional</span>
           </label>
-          <label>
-            <span className="hr-label">Policy</span>
-            <select className="mono hr-field" value={policy} onChange={(e) => setPolicy(e.target.value)}>
-              {POLICIES.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <button
-            type="submit"
-            disabled={busy}
-            className="mono tb-cta"
-            data-on-light="true"
+          <input
+            id="endpoint"
+            className="gl-input mono"
+            placeholder="https://mcp.acme.dev/health"
+            value={endpoint}
+            onChange={(e) => setEndpoint(e.target.value)}
+          />
+        </div>
+        <div>
+          <span className="gl-label">Policy</span>
+          <div
+            role="radiogroup"
+            aria-label="Policy"
             style={{
-              border: "none",
-              width: "fit-content",
-              cursor: busy ? "default" : "pointer",
-              fontSize: 14,
-              padding: "4px 0",
-              opacity: busy ? 0.5 : 1,
+              display: "flex",
+              border: "1.2px solid rgba(255,255,255,0.12)",
+              borderRadius: 8,
+              overflow: "hidden",
             }}
           >
-            Register tool
-            <PixelArrow size={13} color="currentColor" />
+            {POLICIES.map((p) => (
+              <button
+                key={p.value}
+                type="button"
+                role="radio"
+                aria-checked={policy === p.value}
+                onClick={() => setPolicy(p.value)}
+                className="mono"
+                style={{
+                  flex: 1,
+                  padding: "10px 0",
+                  fontSize: 13,
+                  cursor: "pointer",
+                  color: policy === p.value ? "var(--c-photon)" : "var(--c-asphalt)",
+                  background: policy === p.value ? "var(--c-graphite)" : "transparent",
+                  borderRight: p !== POLICIES[POLICIES.length - 1] ? "1.2px solid rgba(255,255,255,0.12)" : "none",
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="gl-btn gl-btn-ghost"
+          >
+            Cancel
           </button>
-        </form>
+          <button type="submit" disabled={busy} className="gl-btn gl-btn-primary">
+            Register tool
+          </button>
+        </div>
 
-        <TxLifecycle functionName="register_tool" stage={stage} txHash={txHash} error={error} />
+        <p style={{ color: "var(--c-asphalt)", fontSize: 12 }}>
+          Registration writes the bind on-chain. Sealing is a separate consensus transaction.
+        </p>
+      </form>
 
-        {stage === "finalized" && toolId && (
-          <p className="mono text-xs" style={{ marginTop: 16, color: "var(--ink-on-b)" }}>
-            Registered as <b>{toolId}</b>.{" "}
-            <button
-              onClick={() => router.push(`/tools/${toolId}`)}
-              style={{ color: "var(--lime-hot)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
-            >
-              View tool →
-            </button>
-          </p>
-        )}
-      </div>
+      <TxLifecycle functionName="register_tool" stage={stage} txHash={txHash} error={error} />
     </div>
   );
 }

@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from "react";
 
-/** Lime typographic wallet control — deliberately not a rounded,
- * rainbow-style "Connect Wallet" button, and never part of the nav
- * link row. */
-export function WalletControl({ dark }: { dark: boolean }) {
+/** Connect-wallet pill. Reads window.ethereum directly -- no second
+ * wallet stack layered on top of the existing genlayer-js/viem path. */
+export function WalletControl() {
   const [address, setAddress] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
 
@@ -29,7 +28,7 @@ export function WalletControl({ dark }: { dark: boolean }) {
       const accts: string[] = await eth.request({ method: "eth_requestAccounts" });
       setAddress(accts?.[0] ?? null);
     } catch {
-      // user rejected — no-op
+      // user rejected -- no-op
     } finally {
       setConnecting(false);
     }
@@ -38,23 +37,14 @@ export function WalletControl({ dark }: { dark: boolean }) {
   return (
     <button
       onClick={connect}
-      className="mono tb-nav-link"
-      style={{
-        color: "var(--lime)",
-        border: "none",
-        cursor: "pointer",
-        fontSize: 11,
-        letterSpacing: "0.16em",
-        textTransform: "uppercase",
-        padding: 0,
-        whiteSpace: "nowrap",
-      }}
+      className={`gl-btn ${address ? "gl-btn-secondary" : "gl-btn-primary"} mono`}
+      style={{ fontSize: 13 }}
     >
       {address
-        ? `${address.slice(0, 6)}···${address.slice(-4)}`
+        ? `${address.slice(0, 6)}…${address.slice(-4)}`
         : connecting
-        ? "Connecting"
-        : "Connect"}
+        ? "Connecting…"
+        : "Connect wallet"}
     </button>
   );
 }

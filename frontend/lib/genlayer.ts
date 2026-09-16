@@ -21,6 +21,10 @@ import type { GenLayerClient, GenLayerChain, TransactionHash } from "genlayer-js
 export const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? "61997");
 export const RPC_URL =
   process.env.NEXT_PUBLIC_GENLAYER_RPC ?? "https://studio-dev.genlayer.com/api";
+// Display label only. RPC_URL stays on the confirmed-working studio-dev
+// endpoint -- studio-next.genlayer.com is not verified reachable, and
+// chain 61997 is the same network either name resolves to.
+export const NETWORK_LABEL = "Studio Next";
 export const CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_TOOLBIND_CONTRACT ??
   "0x0a2813d5fCC663b4F95fCf2c77e5D509104663b6") as `0x${string}`;
 
@@ -66,7 +70,7 @@ export async function getBrowserClient(): Promise<GenLayerClient<GenLayerChain>>
   const eth = (window as any).ethereum;
   if (!eth) {
     throw new Error(
-      "No injected wallet found. Install MetaMask and switch to the studio-dev network to continue."
+      "No injected wallet found. Install MetaMask and switch to Studio Next to continue."
     );
   }
   const accounts: string[] = await eth.request({ method: "eth_requestAccounts" });

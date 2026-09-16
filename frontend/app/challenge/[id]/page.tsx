@@ -4,8 +4,6 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { writeContract, type TxStage } from "@/lib/genlayer";
 import { TxLifecycle } from "@/components/TxLifecycle";
-import { PerspectiveGrid } from "@/components/PerspectiveGrid";
-import { PixelArrow } from "@/components/PixelArrow";
 
 export default function ChallengePage() {
   const params = useParams<{ id: string }>();
@@ -33,79 +31,50 @@ export default function ChallengePage() {
   const busy = stage !== "idle" && stage !== "finalized" && stage !== "error";
 
   return (
-    <div style={{ position: "relative", flex: 1 }}>
-      <PerspectiveGrid />
+    <div
+      style={{
+        flex: 1,
+        padding: "clamp(40px, 6vw, 72px) clamp(16px, 4vw, 48px) 80px",
+        maxWidth: 640,
+        margin: "0 auto",
+        width: "100%",
+      }}
+    >
+      <h1 className="display" style={{ fontSize: "clamp(1.6rem, 3.6vw, 2.1rem)", color: "var(--c-photon)", margin: 0 }}>
+        Challenge <span className="mono" style={{ color: "var(--c-warn)", fontSize: "0.7em" }}>{params.id}</span>
+      </h1>
+      <p style={{ color: "var(--c-chassis)", fontSize: 14, marginTop: 14, lineHeight: 1.7, maxWidth: 480 }}>
+        Submitting a challenge does not overturn the seal by itself — it flags the
+        seal as CHALLENGED and surfaces your counter-evidence to anyone viewing it,
+        including the owner, who can reseal once it expires or a new SHA is set.
+      </p>
 
-      <div
-        style={{
-          position: "relative",
-          zIndex: 1,
-          padding: "clamp(32px, 6vw, 64px) clamp(16px, 4vw, 48px) 80px",
-          maxWidth: 640,
-          margin: "0 auto",
-        }}
-      >
-        <h1
-          style={{
-            fontSize: "clamp(1.9rem, 4.5vw, 2.6rem)",
-            fontWeight: 600,
-            letterSpacing: "-0.02em",
-            color: "var(--ink-on-b)",
-            margin: 0,
-          }}
-        >
-          Challenge <span className="mono" style={{ color: "var(--lime-hot)", fontSize: "0.7em" }}>{params.id}</span>
-        </h1>
-        <p className="mono text-xs" style={{ color: "var(--mute)", marginTop: 14, lineHeight: 1.7, maxWidth: 480 }}>
-          Submitting a challenge does not overturn the seal by itself — it flags the
-          seal as CHALLENGED and surfaces your counter-evidence to anyone viewing it,
-          including the owner, who can reseal once it expires or a new SHA is set.
-        </p>
-
-        <form onSubmit={onSubmit} style={{ marginTop: 32, display: "grid", gap: 24, maxWidth: 480 }}>
-          <label>
-            <span className="hr-label">Counter-evidence URL</span>
-            <input
-              className="mono hr-field"
-              required
-              placeholder="https://example.com/evidence-that-contradicts-the-seal"
-              value={evidenceUrl}
-              onChange={(e) => setEvidenceUrl(e.target.value)}
-            />
+      <form onSubmit={onSubmit} className="gl-card" style={{ marginTop: 28, padding: 24, display: "grid", gap: 20, maxWidth: 480 }}>
+        <div>
+          <label htmlFor="evidence" className="gl-label">
+            Counter-evidence URL
           </label>
-          <button
-            type="submit"
-            disabled={busy}
-            className="mono tb-cta"
-            data-on-light="true"
-            style={{
-              border: "none",
-              width: "fit-content",
-              cursor: busy ? "default" : "pointer",
-              fontSize: 14,
-              padding: "4px 0",
-              opacity: busy ? 0.5 : 1,
-            }}
-          >
-            Submit challenge
-            <PixelArrow size={13} color="currentColor" />
-          </button>
-        </form>
+          <input
+            id="evidence"
+            className="gl-input mono"
+            required
+            placeholder="https://example.com/evidence-that-contradicts-the-seal"
+            value={evidenceUrl}
+            onChange={(e) => setEvidenceUrl(e.target.value)}
+          />
+        </div>
+        <button type="submit" disabled={busy} className="gl-btn gl-btn-primary" style={{ width: "fit-content" }}>
+          Submit challenge
+        </button>
+      </form>
 
-        <TxLifecycle functionName="challenge" stage={stage} txHash={txHash} error={error} />
+      <TxLifecycle functionName="challenge" stage={stage} txHash={txHash} error={error} />
 
-        {stage === "finalized" && (
-          <button
-            onClick={() => router.push(`/seal/${params.id}`)}
-            className="mono tb-cta text-xs"
-            data-on-light="true"
-            style={{ marginTop: 18, border: "none", cursor: "pointer", padding: 0 }}
-          >
-            View seal
-            <PixelArrow size={11} color="currentColor" />
-          </button>
-        )}
-      </div>
+      {stage === "finalized" && (
+        <button onClick={() => router.push(`/seal/${params.id}`)} className="gl-btn gl-btn-secondary" style={{ marginTop: 18 }}>
+          View seal
+        </button>
+      )}
     </div>
   );
 }

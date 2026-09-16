@@ -2,16 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+/* GenLayer official tokens. One dark system, everywhere -- no theme
+   flip between routes. */
 :root {
-  --frame: #7cff4d;
-  --field-a: #050505;
-  --field-b: #f3f3f1;
-  --ink-on-a: #f5f5f5;
-  --ink-on-b: #111111;
-  --mute: #8a8a86;
-  --lime: #7cff4d;
-  --lime-hot: #b6ff3b;
-  --frame-w: 12px;
+  --c-cobalt: #110fff;
+  --c-void: #070707;
+  --c-ceramic: #f5f5f5;
+  --c-photon: #ffffff;
+  --c-chassis: #cacaca;
+  --c-asphalt: #606060;
+  --c-graphite: #303030;
+  --c-success: #00ff66;
+  --c-error: #ff2b2b;
+  --c-warn: #c4a35a;
+
+  --radius-card: 12px;
+  --radius-pill: 20px;
+  --btn-h: 40px;
+  --space: 4px;
 }
 
 * {
@@ -22,13 +30,13 @@ html,
 body {
   padding: 0;
   margin: 0;
-  background: var(--frame);
-  color: var(--ink-on-a);
+  background: var(--c-void);
+  color: var(--c-photon);
   overflow-x: hidden;
 }
 
 body {
-  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-body), -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 a {
@@ -36,13 +44,19 @@ a {
   text-decoration: none;
 }
 
+.display {
+  font-family: var(--font-display), sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
 .mono {
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-family: var(--font-mono), ui-monospace, monospace;
 }
 
 ::selection {
-  background: var(--lime);
-  color: #000;
+  background: var(--c-cobalt);
+  color: var(--c-photon);
 }
 
 input,
@@ -52,123 +66,187 @@ button {
   background: transparent;
   outline: none;
   font-family: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--c-cobalt);
+  outline-offset: 2px;
 }
 
 /* ------------------------------------------------------------------ */
-/* Typographic controls — never a rounded/filled marketing button      */
+/* Buttons -- gl-btn pattern: 40px pill, no bounce                     */
 /* ------------------------------------------------------------------ */
 
-.tb-nav-link {
-  color: var(--mute);
-  transition: color 160ms ease;
-}
-.tb-nav-link:hover {
-  color: var(--lime);
-}
-.tb-nav-link[data-active="true"] {
-  color: var(--lime);
-}
-
-.tb-cta {
+.gl-btn {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  color: var(--ink-on-a);
-  transition: color 160ms ease, gap 160ms ease;
+  justify-content: center;
+  gap: 8px;
+  height: var(--btn-h);
+  padding: 0 20px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color 150ms ease, border-color 150ms ease, opacity 150ms ease;
 }
-.tb-cta:hover {
-  color: var(--lime);
-  gap: 18px;
-}
-.tb-cta[data-on-light="true"] {
-  color: var(--ink-on-b);
-}
-.tb-cta[data-on-light="true"]:hover {
-  color: #5fbd34;
+.gl-btn:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
-/* Hairline-rule form field — bottom border only, never a box */
-.hr-field {
-  border: none;
-  border-bottom: 1px solid rgba(17, 17, 17, 0.28);
-  padding: 10px 2px;
-  font-size: 1.0625rem;
+.gl-btn-primary {
+  background: var(--c-photon);
+  color: #000;
+}
+.gl-btn-primary:hover:not(:disabled) {
+  background: var(--c-chassis);
+}
+
+.gl-btn-secondary {
+  background: transparent;
+  color: var(--c-photon);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.gl-btn-secondary:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.gl-btn-ghost {
+  background: transparent;
+  color: var(--c-chassis);
+}
+.gl-btn-ghost:hover:not(:disabled) {
+  color: var(--c-photon);
+}
+
+.gl-btn-destructive {
+  background: transparent;
+  color: var(--c-error);
+}
+.gl-btn-destructive:hover:not(:disabled) {
+  background: rgba(255, 43, 43, 0.08);
+}
+
+/* ------------------------------------------------------------------ */
+/* Cards / inputs / badges                                             */
+/* ------------------------------------------------------------------ */
+
+.gl-card {
+  background: var(--c-graphite);
+  border: 1.2px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-card);
+}
+
+.gl-input {
   width: 100%;
-  color: var(--ink-on-b);
-  border-radius: 0;
-  transition: border-color 160ms ease;
+  height: 40px;
+  padding: 0 14px;
+  background: var(--c-void);
+  border: 1.2px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--c-photon);
+  transition: border-color 150ms ease;
 }
-.hr-field::placeholder {
-  color: rgba(138, 138, 134, 0.75);
+.gl-input::placeholder {
+  color: var(--c-asphalt);
 }
-.hr-field:focus {
-  border-bottom-color: var(--lime);
+.gl-input:focus {
+  border-color: var(--c-cobalt);
 }
-.hr-field:focus-visible {
-  outline: none;
+textarea.gl-input {
+  height: auto;
+  min-height: 92px;
+  padding: 10px 14px;
+  resize: vertical;
 }
 
-.hr-label {
+.gl-label {
   display: block;
   font-size: 11px;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--mute);
-  margin-bottom: 2px;
+  color: var(--c-asphalt);
+  margin-bottom: 6px;
 }
 
-/* Tools list row — type + dot + sha, divided by a 1px rule. No cards. */
-.tb-row {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  padding: 18px 0;
-  border-bottom: 1px solid rgba(17, 17, 17, 0.12);
-  transition: padding-left 160ms ease;
+.gl-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--c-chassis);
 }
-.tb-row:hover {
-  padding-left: 8px;
-}
-.tb-dot {
+
+.gl-dot {
   width: 6px;
   height: 6px;
-  flex: 0 0 6px;
-  background: var(--lime);
   border-radius: 50%;
+  flex: 0 0 6px;
+  display: inline-block;
 }
 
-/* Header layout — wraps onto two rows under ~640px so the nav never gets
-   clipped by the frame's overflow:hidden (logo+connect stay on row one,
-   nav drops to its own full-width row two). */
-.tb-header {
+/* Nav link, used in both the top bar and the sidebar */
+.gl-nav-link {
+  color: var(--c-asphalt);
+  transition: color 150ms ease;
+}
+.gl-nav-link:hover {
+  color: var(--c-photon);
+}
+.gl-nav-link[data-active="true"] {
+  color: var(--c-cobalt);
+}
+
+.gl-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.gl-row:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ------------------------------------------------------------------ */
+/* Top bar -- wraps onto two rows under ~720px instead of clipping     */
+/* ------------------------------------------------------------------ */
+
+.gl-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   column-gap: 24px;
-  min-height: 60px;
-  padding: 14px clamp(16px, 3vw, 32px);
+  padding: 16px clamp(16px, 3vw, 32px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
-.tb-header-nav {
+.gl-header-nav {
   display: flex;
   align-items: center;
-  gap: clamp(14px, 2.4vw, 32px);
+  gap: clamp(14px, 2.4vw, 28px);
   font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
-/* Below this width the single-row nav genuinely can't fit next to the
-   logo and connect control — wrap it onto its own full-width row rather
-   than letting it get clipped by the frame's overflow:hidden. */
-@media (max-width: 640px) {
-  .tb-header {
+@media (max-width: 720px) {
+  .gl-header {
     flex-wrap: wrap;
-    row-gap: 10px;
+    row-gap: 12px;
   }
-  .tb-header-nav {
+  .gl-header-nav {
     order: 3;
     width: 100%;
-    justify-content: flex-start;
-    gap: 16px;
+    gap: 20px;
   }
 }
 
