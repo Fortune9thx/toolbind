@@ -9,6 +9,8 @@ import re
 
 import pytest
 
+from conftest import llm_response
+
 CONTRACT_PATH = "contracts/ToolBind.py"
 
 REPO = "https://github.com/acme/mcp-tool"
@@ -52,7 +54,7 @@ def test_bind_fails_when_no_web_mock_registered(contract, direct_vm, tool_id):
 def test_bind_fails_when_sha_not_visible_on_page(contract, direct_vm, tool_id):
     direct_vm.mock_web(re_escape(_commit_url()), {"body": "acme/mcp-tool - a totally different commit"})
     direct_vm.mock_web(re_escape(_readme_url()), {"body": "# mcp-tool"})
-    direct_vm.mock_llm(".*", json.dumps({
+    direct_vm.mock_llm(".*", llm_response({
         "approved": True, "verdict": "SEALED", "confidence": "0.99",
         "risk": "low", "reason": "should never be reached",
     }))
@@ -66,7 +68,7 @@ def test_bind_fails_when_sha_not_visible_on_page(contract, direct_vm, tool_id):
 def test_bind_fails_when_repo_not_matched(contract, direct_vm, tool_id):
     direct_vm.mock_web(re_escape(_commit_url()), {"body": f"commit {SHA[:7]} - some-other-repo"})
     direct_vm.mock_web(re_escape(_readme_url()), {"body": "# mcp-tool"})
-    direct_vm.mock_llm(".*", json.dumps({
+    direct_vm.mock_llm(".*", llm_response({
         "approved": True, "verdict": "SEALED", "confidence": "0.99",
         "risk": "low", "reason": "should never be reached",
     }))
@@ -93,7 +95,7 @@ def test_malformed_llm_json_yields_inconclusive_not_crash(contract, direct_vm, t
 
 def test_low_confidence_forces_inconclusive(contract, direct_vm, tool_id):
     _mock_bind_ok(direct_vm)
-    direct_vm.mock_llm(".*", json.dumps({
+    direct_vm.mock_llm(".*", llm_response({
         "approved": True, "verdict": "SEALED", "confidence": "0.40",
         "risk": "med", "reason": "weak evidence",
     }))
@@ -106,7 +108,7 @@ def test_low_confidence_forces_inconclusive(contract, direct_vm, tool_id):
 
 def test_sealed_without_approved_is_downgraded(contract, direct_vm, tool_id):
     _mock_bind_ok(direct_vm)
-    direct_vm.mock_llm(".*", json.dumps({
+    direct_vm.mock_llm(".*", llm_response({
         "approved": False, "verdict": "SEALED", "confidence": "0.95",
         "risk": "low", "reason": "inconsistent",
     }))
@@ -122,7 +124,7 @@ def test_bare_float_confidence_string_from_model_is_handled(contract, direct_vm,
     # never let confidence formatting leak a raw Python float into
     # stored JSON (it is always re-emitted as a fixed "%.2f" string).
     _mock_bind_ok(direct_vm)
-    direct_vm.mock_llm(".*", json.dumps({
+    direct_vm.mock_llm(".*", llm_response({
         "approved": True, "verdict": "SEALED", "confidence": "1.5",
         "risk": "low", "reason": "over-claimed confidence",
     }))

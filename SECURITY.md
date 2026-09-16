@@ -26,6 +26,25 @@ enforced in code, not by prompt instruction: the `_bind_and_judge`
 function returns immediately on a failed bind, before `gl.nondet.exec_prompt`
 is ever called.
 
+## SSRF mitigation on fetch targets
+
+`repo` is pinned to `https://github.com/...` at registration, so its
+fetch target is never fully caller-controlled. `endpoint` is: it is an
+arbitrary caller-supplied URL that `seal()`'s Stage A fetches live,
+independently, from every validator's own infrastructure -- exactly the
+shape of target SSRF defenses exist for (probing internal services,
+cloud metadata endpoints, etc.).
+
+`_unsafe_host_reason` rejects an `endpoint` at `register_tool` time if
+it has a non-http(s) scheme, embedded credentials, an explicit port, a
+`localhost`/`*.localhost` host, a numeric/IP-literal host, or an
+internal/link-local host (`0.0.0.0`, `::1`, `169.254.*`). This is a
+textual screen, not a complete defense: it cannot inspect where a URL
+redirects to and cannot pin a resolved IP against DNS rebinding between
+this check and the actual fetch inside `seal()`. It closes the cheap,
+purely-textual class of the problem, matching the posture this
+account's other GenLayer primitives take on the same risk.
+
 ## Prompt-injection mitigations
 
 Every piece of caller-supplied or fetched free text embedded in the

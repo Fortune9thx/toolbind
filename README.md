@@ -71,9 +71,13 @@ The contract runs on the GenVM v0.3.0 API surface (`gl.contract.Contract`, `gl.c
 
 **Register a tool** — [`/register`](https://toolbind.vercel.app/register): submit a repo URL, a pinned commit SHA, capability claims, an optional live endpoint, and a policy. You become the tool's owner.
 
-**Seal it** — [`/tools/[id]`](https://toolbind.vercel.app/tools), *Seal*: triggers the two-stage bind-then-judge flow described above.
+**Browse the registry** — [`/registry`](https://toolbind.vercel.app/registry): search and filter every registered tool, with sealed/pending/expired counts. Selecting a row opens its certificate at `/tools/<tool_id>`.
 
-**Look up a seal** — [`/lookup`](https://toolbind.vercel.app/lookup): no wallet required. Paste a `tool-N` or `seal-N` id to read the record directly.
+**Seal it** — from a tool's certificate page, *Seal this tool*: triggers the two-stage bind-then-judge flow described above. The same page shows the tool's full seal history, a live probe of its declared endpoint, and reseal/challenge actions.
+
+**Look up a seal** — [`/lookup`](https://toolbind.vercel.app/lookup): no wallet required. Paste a tool id, a seal id, or an owner address to jump straight to its record.
+
+**Review recent activity** — [`/activity`](https://toolbind.vercel.app/activity): every seal on this deployment as a ledger, newest first, with a click-to-inspect detail panel.
 
 ### How an agent should interpret a seal
 
@@ -87,13 +91,16 @@ The contract runs on the GenVM v0.3.0 API surface (`gl.contract.Contract`, `gl.c
 ## Repository structure
 
 ```
-contracts/ToolBind.py     Python Intelligent Contract
-tests/direct/              gltest direct-mode test suite
-frontend/                  Next.js 15 (App Router) + TypeScript + Tailwind + Framer Motion
-scripts/deploy.mjs         genlayer-js deploy script (alternative to the CLI flow below)
-scripts/peek-tx.mjs        transaction status utility
-SECURITY.md                threat model, prompt-injection posture, SSRF posture
+contracts/ToolBind.py            Python Intelligent Contract
+tests/direct/                     gltest direct-mode test suite (27 tests, all passing)
+frontend/                         Next.js 15 (App Router) + TypeScript + Tailwind + Framer Motion
+frontend/scripts/peek-tx.mjs      transaction status utility (confirmed working)
+frontend/scripts/deploy.mjs       genlayer-js deploy starting point (see its own docstring —
+                                   the confirmed-working deploy path is the CLI flow below)
+SECURITY.md                       threat model, prompt-injection/SSRF posture
 ```
+
+Both scripts live under `frontend/` because that's where `genlayer-js` is actually installed — Node's ESM resolution walks up from the importing file's own directory, so running them from a sibling `scripts/` folder at the repo root cannot find the dependency no matter the invocation directory.
 
 ## Running your own instance
 
@@ -139,8 +146,9 @@ Set the same three `NEXT_PUBLIC_*` variables in your Vercel project's environmen
 ## Testing
 
 ```bash
-cd tests/direct
-pytest
+gltest tests/direct/ -v
 ```
 
-27 direct-mode tests cover registration, access control, the two-stage seal flow, bind-failure paths, malformed-judgment handling, and challenge/reseal semantics. `genvm-lint contracts/ToolBind.py` runs clean.
+Run from the repo root — `contracts/ToolBind.py` is resolved relative to the working directory, so running from inside `tests/direct/` (or with plain `pytest`, which won't pick up gltest's fixtures at all) fails immediately. 27 direct-mode tests, all passing: registration, access control, the two-stage seal flow, bind-failure paths, malformed-judgment handling, and challenge/reseal semantics. `genvm-lint contracts/ToolBind.py` runs clean.
+
+Writing a new test that mocks an LLM reply? Use the `llm_response()` helper in `tests/direct/conftest.py`, not a bare `json.dumps(...)` — gltest's direct-mode mock unconditionally `json.loads()`s any `mock_llm()` response and substitutes the parsed dict before handing it to the SDK, which breaks this contract's text-mode `exec_prompt()` call (a real gltest-side quirk, not a contract bug; see the docstring there for the full explanation).

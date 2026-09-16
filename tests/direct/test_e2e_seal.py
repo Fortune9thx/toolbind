@@ -9,6 +9,8 @@ import re
 
 import pytest
 
+from conftest import llm_response
+
 CONTRACT_PATH = "contracts/ToolBind.py"
 
 REPO = "https://github.com/acme/mcp-tool"
@@ -48,6 +50,20 @@ def contract(direct_deploy):
     return direct_deploy(CONTRACT_PATH)
 
 
+def _sender_hex(direct_vm) -> str:
+    """direct_vm.sender defaults to raw bytes (not an Address/hex str)
+    under this gltest version -- str(bytes) gives Python's repr
+    ("b'\\xdc...'"), not a hex address, so this converts explicitly the
+    same way the contract itself normalizes an owner via Address(...).
+    as_hex, closing a real test-assertion bug found while auditing this
+    suite (the assertion always failed regardless of contract
+    correctness)."""
+    sender = direct_vm.sender
+    if isinstance(sender, (bytes, bytearray)):
+        return "0x" + sender.hex()
+    return str(sender)
+
+
 def test_register_tool_happy_path(contract, direct_vm):
     tool_id = contract.register_tool(REPO, SHA, "reads files safely", "", "general")
     assert tool_id == "tool-0"
@@ -55,7 +71,7 @@ def test_register_tool_happy_path(contract, direct_vm):
     assert record["repo"] == REPO
     assert record["sha"] == SHA
     assert record["policy"] == "general"
-    assert record["owner"].lower() == str(direct_vm.sender).lower()
+    assert record["owner"].lower() == _sender_hex(direct_vm).lower()
 
 
 def test_register_tool_rejects_non_github_repo(contract):
@@ -76,7 +92,7 @@ def test_register_tool_rejects_bad_policy(contract):
 def test_seal_happy_path_sealed(contract, direct_vm):
     tool_id = contract.register_tool(REPO, SHA, "reads files safely", "", "general")
     _mock_bind_ok(direct_vm)
-    direct_vm.mock_llm(".*", json.dumps(SEALED_VERDICT))
+    direct_vm.mock_llm(".*", llm_response(SEALED_VERDICT))
 
     seal_id = contract.seal(tool_id)
     assert seal_id == "seal-0"
@@ -99,7 +115,7 @@ def test_seal_with_endpoint(contract, direct_vm):
     endpoint = "https://api.acme.dev/mcp/health"
     tool_id = contract.register_tool(REPO, SHA, "healthy endpoint", endpoint, "general")
     _mock_bind_ok(direct_vm, endpoint=endpoint)
-    direct_vm.mock_llm(".*", json.dumps(SEALED_VERDICT))
+    direct_vm.mock_llm(".*", llm_response(SEALED_VERDICT))
 
     seal_id = contract.seal(tool_id)
     seal_record = json.loads(contract.get_seal(seal_id))
@@ -109,7 +125,7 @@ def test_seal_with_endpoint(contract, direct_vm):
 def test_second_seal_supersedes_first(contract, direct_vm):
     tool_id = contract.register_tool(REPO, SHA, "claims", "", "general")
     _mock_bind_ok(direct_vm)
-    direct_vm.mock_llm(".*", json.dumps(SEALED_VERDICT))
+    direct_vm.mock_llm(".*", llm_response(SEALED_VERDICT))
 
     first_id = contract.seal(tool_id)
     second_id = contract.seal(tool_id)

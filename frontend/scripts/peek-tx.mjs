@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
  * Utility: fetch and print a transaction's current status/receipt from
- * studio-dev, for manually checking a deploy or a seal() call after
- * running it yourself. WRITTEN BUT NOT EXECUTED as part of this build.
+ * studio-dev, for manually checking a deploy or a seal() call. Unlike
+ * scripts/deploy.mjs, this is a read-only call with no fee requirement,
+ * and has been confirmed working against a real deployment transaction.
  *
  * Usage:
- *   node scripts/peek-tx.mjs 0xTRANSACTION_HASH
+ *   node frontend/scripts/peek-tx.mjs 0xTRANSACTION_HASH
  */
 
 import { createClient } from "genlayer-js";
@@ -23,7 +24,7 @@ const studioDevChain = {
 async function main() {
   const hash = process.argv[2];
   if (!hash) {
-    console.error("Usage: node scripts/peek-tx.mjs 0xTRANSACTION_HASH");
+    console.error("Usage: node frontend/scripts/peek-tx.mjs 0xTRANSACTION_HASH");
     process.exit(1);
   }
 

@@ -8,7 +8,7 @@ import re
 
 import pytest
 
-from conftest import warp_with_message
+from conftest import llm_response, warp_with_message
 
 CONTRACT_PATH = "contracts/ToolBind.py"
 
@@ -45,7 +45,7 @@ def _mock_bind_ok(direct_vm, sha=SHA):
 def test_challenge_marks_seal_challenged(contract, direct_vm, direct_alice):
     tool_id = contract.register_tool(REPO, SHA, "claims", "", "general")
     _mock_bind_ok(direct_vm)
-    direct_vm.mock_llm(".*", json.dumps(SEALED_VERDICT))
+    direct_vm.mock_llm(".*", llm_response(SEALED_VERDICT))
     seal_id = contract.seal(tool_id)
 
     direct_vm.sender = direct_alice
@@ -65,7 +65,7 @@ def test_challenge_rejects_missing_seal(contract):
 def test_challenge_rejects_empty_evidence_url(contract, direct_vm):
     tool_id = contract.register_tool(REPO, SHA, "claims", "", "general")
     _mock_bind_ok(direct_vm)
-    direct_vm.mock_llm(".*", json.dumps(SEALED_VERDICT))
+    direct_vm.mock_llm(".*", llm_response(SEALED_VERDICT))
     seal_id = contract.seal(tool_id)
 
     with pytest.raises(Exception):
@@ -75,7 +75,7 @@ def test_challenge_rejects_empty_evidence_url(contract, direct_vm):
 def test_reseal_rejected_before_expiry_same_sha(contract, direct_vm):
     tool_id = contract.register_tool(REPO, SHA, "claims", "", "general")
     _mock_bind_ok(direct_vm)
-    direct_vm.mock_llm(".*", json.dumps(SEALED_VERDICT))
+    direct_vm.mock_llm(".*", llm_response(SEALED_VERDICT))
     contract.seal(tool_id)
 
     with pytest.raises(Exception):
@@ -85,12 +85,12 @@ def test_reseal_rejected_before_expiry_same_sha(contract, direct_vm):
 def test_reseal_allowed_with_new_sha(contract, direct_vm):
     tool_id = contract.register_tool(REPO, SHA, "claims", "", "general")
     _mock_bind_ok(direct_vm)
-    direct_vm.mock_llm(".*", json.dumps(SEALED_VERDICT))
+    direct_vm.mock_llm(".*", llm_response(SEALED_VERDICT))
     first_seal = contract.seal(tool_id)
 
     contract.update_claims(tool_id, "claims", SHA2)
     _mock_bind_ok(direct_vm, sha=SHA2)
-    direct_vm.mock_llm(".*", json.dumps(SEALED_VERDICT))
+    direct_vm.mock_llm(".*", llm_response(SEALED_VERDICT))
 
     second_seal = contract.reseal(tool_id)
     assert second_seal != first_seal
@@ -105,13 +105,13 @@ def test_reseal_allowed_with_new_sha(contract, direct_vm):
 def test_reseal_allowed_after_expiry(contract, direct_vm):
     tool_id = contract.register_tool(REPO, SHA, "claims", "", "general")
     _mock_bind_ok(direct_vm)
-    direct_vm.mock_llm(".*", json.dumps(SEALED_VERDICT))
+    direct_vm.mock_llm(".*", llm_response(SEALED_VERDICT))
     first_seal = contract.seal(tool_id)
 
     # Warp well past SEAL_LIFETIME_SECONDS (30 days).
     warp_with_message(direct_vm, "2999-01-01T00:00:00+00:00")
     _mock_bind_ok(direct_vm)
-    direct_vm.mock_llm(".*", json.dumps(SEALED_VERDICT))
+    direct_vm.mock_llm(".*", llm_response(SEALED_VERDICT))
 
     second_seal = contract.reseal(tool_id)
     assert second_seal != first_seal
