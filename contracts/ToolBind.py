@@ -45,11 +45,13 @@ take a caller's word for what the evidence says.
   and VisionaryWebAuditor pattern of fetching real evidence inside the
   contract before any judgment runs, rather than trusting whatever the
   caller asserts about what a URL contains.
-- **TreeMap[str, str] JSON-encoded records**, explicit `self.x =
-  TreeMap()` construction in `__init__` -- the storage shape this
-  account has repeatedly verified readable post-deploy, with values kept
-  as JSON strings so no return path can ever carry a raw float.
-- **run_nondet_unsafe with a hand-written validator_fn that
+- **TreeMap[str, str] JSON-encoded records**, left as bare class-level
+  annotations with no explicit `TreeMap()` construction in `__init__`
+  (this GenVM build's v0.3.0 storage system rejects explicitly
+  constructing a generic storage field -- see `__init__`'s own comment).
+  Values are kept as JSON strings so no return path can ever carry a raw
+  float.
+- **run_nondet with a hand-written validator_fn that
   independently re-derives the same judgment**, not a non-comparative
   Equivalence Principle call -- the same choice made in
   ServiceComplianceGate/UpgradeChangelogGate/IndependentEvidenceSettler,
@@ -96,7 +98,9 @@ README.md and SECURITY.md in this repository.
 import json
 import re
 import secrets
+import typing
 from datetime import datetime, timezone
+from urllib.parse import urlsplit
 import genlayer as gl
 from genlayer.types import *
 from genlayer.storage import TreeMap
@@ -127,6 +131,55 @@ MIN_SEAL_CONFIDENCE = 0.70
 
 # A SHA must look like a real (short or full) git commit hash.
 _SHA_RE = re.compile(r"^[0-9a-fA-F]{7,40}$")
+
+_NUMERIC_HOST_RE = re.compile(r"^[0-9.]+$")
+
+
+def _unsafe_host_reason(url: str) -> typing.Optional[str]:
+    """Returns a short reason string if `url`'s host looks like an
+    attempt to make `seal()`'s live `gl.nondet.web.render(endpoint)`
+    fetch target internal/local infrastructure instead of a genuine
+    third-party live endpoint -- None if the host looks like an
+    ordinary public domain. `repo` does not need this check: it is
+    already pinned to `github.com` above. `endpoint` is fully
+    caller-controlled and unrestricted otherwise, and every validator
+    independently performs this fetch from its own infrastructure, so
+    an unguarded endpoint is exactly the kind of attacker-controlled
+    fetch target SSRF defenses exist for (probing internal services,
+    cloud metadata endpoints like 169.254.169.254, etc.). Deliberately
+    NOT a complete SSRF defense (no redirect inspection, no
+    DNS-rebinding pin) -- this closes the cheap, purely-textual class
+    of the problem, matching this account's IndependentEvidenceSettler
+    precedent."""
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return "unparseable URL"
+
+    if parts.scheme not in ("http", "https"):
+        return "scheme must be http or https"
+    if "@" in parts.netloc:
+        return "credentials in URL are not allowed"
+
+    try:
+        hostname = parts.hostname
+        port = parts.port
+    except ValueError:
+        return "unparseable host or port"
+
+    if not hostname:
+        return "missing hostname"
+    if port is not None:
+        return "explicit port is not allowed"
+
+    hostname = hostname.lower()
+    if hostname == "localhost" or hostname.endswith(".localhost"):
+        return "localhost is not allowed"
+    if _NUMERIC_HOST_RE.match(hostname):
+        return "numeric/IP-literal hostname is not allowed"
+    if hostname in ("0.0.0.0", "::1") or hostname.startswith("169.254."):
+        return "internal/link-local hostname is not allowed"
+    return None
 
 # Heuristic-only screen for prompt-manipulation phrasing in any
 # caller-supplied free text (claims, endpoint declarations, challenge
@@ -285,6 +338,10 @@ class ToolBind(gl.contract.Contract):
             raise gl.vm.UserError(f"endpoint must be at most {MAX_ENDPOINT_CHARS} chars")
         if endpoint and not (endpoint.startswith("https://") or endpoint.startswith("http://")):
             raise gl.vm.UserError("endpoint must be an http(s) URL if provided")
+        if endpoint:
+            unsafe_reason = _unsafe_host_reason(endpoint)
+            if unsafe_reason is not None:
+                raise gl.vm.UserError(f"endpoint rejected: {unsafe_reason}")
         if policy not in VALID_POLICIES:
             raise gl.vm.UserError(f"policy must be one of {VALID_POLICIES}: {policy!r}")
 

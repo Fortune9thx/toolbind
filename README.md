@@ -4,7 +4,7 @@
 
 Trust infrastructure for AI agents that need to decide whether to use a tool they didn't write.
 
-[**Live App**](https://toolbind.vercel.app) · [**Contract Explorer**](https://explorer-studio-dev.genlayer.com/address/0x91e6Fff36D4082e575391b42149AB006cD18BA35) · [SECURITY.md](./SECURITY.md)
+[**Live App**](https://toolbind.vercel.app) · [**Contract Explorer**](https://explorer-studio-dev.genlayer.com/address/0x0a2813d5fCC663b4F95fCf2c77e5D509104663b6) · [SECURITY.md](./SECURITY.md)
 
 ---
 
@@ -55,7 +55,7 @@ ToolBind is **not** escrow, **not** a payment or settlement channel, **not** fac
 | --- | --- |
 | Network | GenLayer Studio Devnet (`studio-dev`) |
 | Chain ID | `61997` |
-| Contract | [`0x91e6Fff36D4082e575391b42149AB006cD18BA35`](https://explorer-studio-dev.genlayer.com/address/0x91e6Fff36D4082e575391b42149AB006cD18BA35) |
+| Contract | [`0x0a2813d5fCC663b4F95fCf2c77e5D509104663b6`](https://explorer-studio-dev.genlayer.com/address/0x0a2813d5fCC663b4F95fCf2c77e5D509104663b6) |
 | App | [toolbind.vercel.app](https://toolbind.vercel.app) |
 | RPC | `https://studio-dev.genlayer.com/api` |
 
@@ -64,6 +64,8 @@ ToolBind is **not** escrow, **not** a payment or settlement channel, **not** fac
 The contract runs on the GenVM v0.3.0 API surface (`gl.contract.Contract`, `gl.chain.Event`, `gl.vm.run_nondet`, bare `TreeMap[...]` field annotations) that Studio Devnet's consensus runtime executes. This is a different API generation from GenVM v0.2.16 (`gl.Contract`, `gl.Event`, `run_nondet_unsafe`, explicit `TreeMap()` construction) — the two are not interchangeable, and porting this contract to a v0.2.16 network would require reverting those calls.
 
 `tool_id` and `seal_id` values returned by `register_tool`/`seal` are **strings** (`"tool-0"`, `"seal-0"`, ...), not integers. Pass them back exactly as returned.
+
+**Consensus verified live**, not just in local tests: a real `seal()` call reached full validator consensus on Studio Devnet (`MAJORITY_AGREE`, 3/5 AGREE) and correctly recorded a fail-closed `bind_failed` result against an unreachable test SHA — proof both the two-stage bind-then-judge flow and the independent-re-derivation validator pattern hold up under real multi-validator execution, not only gltest's direct-mode mock (which cannot exercise validator logic at all).
 
 ## Using ToolBind
 

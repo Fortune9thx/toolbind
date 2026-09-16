@@ -8,9 +8,9 @@
  * read-only client, and getTransaction({hash}).statusName for polling,
  * rather than an unconfirmed waitForTransactionReceipt-style helper.
  *
- * NEXT_PUBLIC_TOOLBIND_CONTRACT is a PLACEHOLDER until the contract is
- * actually deployed -- see README.md "NOT YET DEPLOYED" for the manual
- * deploy step and how to fill this in afterward.
+ * NEXT_PUBLIC_TOOLBIND_CONTRACT points at the live studio-dev deployment
+ * by default (see README.md "Live deployment"); override it in
+ * frontend/.env.local to point at a different deploy.
  */
 
 import { createClient } from "genlayer-js";
@@ -22,7 +22,7 @@ export const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? "61997");
 export const RPC_URL =
   process.env.NEXT_PUBLIC_GENLAYER_RPC ?? "https://studio-dev.genlayer.com/api";
 export const CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_TOOLBIND_CONTRACT ??
-  "0xPLACEHOLDER_TOOLBIND_CONTRACT_ADDRESS") as `0x${string}`;
+  "0x0a2813d5fCC663b4F95fCf2c77e5D509104663b6") as `0x${string}`;
 
 // studio-dev network config: genlayer-js's packaged `studionet` chain is
 // overridden with this project's explicit id/RPC so a redeploy to a
@@ -99,6 +99,9 @@ export interface WriteLifecycleHandlers {
   onError?: (error: unknown) => void;
 }
 
+// Every terminal status the poll loop below should stop on. Deliberately
+// broader than SUCCESS_STATUSES -- a stalled/disagreed transaction still
+// needs to stop polling, it just must not be reported as "finalized".
 const DECIDED_STATUSES = new Set<TransactionStatus>([
   TransactionStatus.ACCEPTED,
   TransactionStatus.FINALIZED,
@@ -106,6 +109,17 @@ const DECIDED_STATUSES = new Set<TransactionStatus>([
   TransactionStatus.CANCELED,
   TransactionStatus.VALIDATORS_TIMEOUT,
   TransactionStatus.LEADER_TIMEOUT,
+]);
+
+// Whitelist, not a blacklist (a decided-but-not-explicitly-listed status
+// must never be treated as success by default) -- only these two mean
+// consensus actually agreed on and committed a result. UNDETERMINED
+// (validators disagreed), CANCELED, and the two TIMEOUT statuses all
+// mean nothing was written on-chain, even though the outer transaction
+// reads as "decided" rather than "still pending".
+const SUCCESS_STATUSES = new Set<TransactionStatus>([
+  TransactionStatus.ACCEPTED,
+  TransactionStatus.FINALIZED,
 ]);
 
 /**
@@ -135,6 +149,7 @@ export async function writeContract(
     onStage?.("pending");
     let lastStatus: TransactionStatus | null = null;
     let result: unknown = null;
+    let finalStatus: TransactionStatus | null = null;
     for (let attempt = 0; attempt < 100; attempt++) {
       const tx = await client.getTransaction({ hash: hash as TransactionHash });
       const status = tx.statusName ?? TransactionStatus.PENDING;
@@ -144,9 +159,26 @@ export async function writeContract(
       }
       if (DECIDED_STATUSES.has(status)) {
         result = (tx as any).result ?? (tx as any).data ?? null;
+        finalStatus = status;
         break;
       }
       await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
+
+    // Only an explicit whitelisted success status is reported as
+    // "finalized" -- a transaction that decided into UNDETERMINED,
+    // CANCELED, or a timeout status looks identical to a real success
+    // to a loop that only checks "did polling stop", so that check is
+    // never sufficient on its own (see SUCCESS_STATUSES above).
+    if (finalStatus === null || !SUCCESS_STATUSES.has(finalStatus)) {
+      const error = new Error(
+        finalStatus
+          ? `Transaction did not reach consensus: ${finalStatus}. No state was written.`
+          : "Timed out waiting for a decided transaction status."
+      );
+      onStage?.("error");
+      onError?.(error);
+      throw error;
     }
 
     onStage?.("finalized");

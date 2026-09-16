@@ -36,6 +36,10 @@ export default function ToolDetailPage() {
   const [txHash, setTxHash] = useState<string | null>(null);
   const [txError, setTxError] = useState<string | null>(null);
 
+  const [editing, setEditing] = useState(false);
+  const [editClaims, setEditClaims] = useState("");
+  const [editSha, setEditSha] = useState("");
+
   async function load() {
     try {
       const raw = await readContract<string>("get_tool", [params.id]);
@@ -70,6 +74,30 @@ export default function ToolDetailPage() {
       if (sealId) router.push(`/seal/${sealId}`);
     } catch {
       // handled via onError
+    }
+  }
+
+  function startEditing() {
+    setEditClaims(tool?.claims ?? "");
+    setEditSha(tool?.sha ?? "");
+    setEditing(true);
+  }
+
+  async function submitEdit() {
+    setTxError(null);
+    setTxHash(null);
+    try {
+      await writeContract("update_claims", [params.id, editClaims, editSha], {
+        onStage: setStage,
+        onTxHash: setTxHash,
+        onError: (err) => setTxError(String((err as Error)?.message ?? err)),
+      });
+      setEditing(false);
+      await load();
+    } catch {
+      // handled via onError -- update_claims is owner-only and requires a
+      // new sha, so a non-owner call or an unchanged sha surfaces here as
+      // a clear contract-side revert message rather than failing silently.
     }
   }
 
@@ -110,6 +138,54 @@ export default function ToolDetailPage() {
         <Row label="Claims" value={tool.claims} />
         <Row label="Updated" value={tool.updated_at} />
       </dl>
+
+      {editing ? (
+        <div style={{ marginTop: 20, display: "grid", gap: 10 }}>
+          <label className="mono text-xs" style={{ color: "var(--mute)" }}>
+            New pinned SHA (must differ from the current one)
+            <input
+              value={editSha}
+              onChange={(e) => setEditSha(e.target.value)}
+              className="mono text-xs"
+              style={{ width: "100%", padding: "8px 0", borderBottom: "1px solid var(--ink-on-b)", background: "none" }}
+            />
+          </label>
+          <label className="mono text-xs" style={{ color: "var(--mute)" }}>
+            Updated claims
+            <textarea
+              value={editClaims}
+              onChange={(e) => setEditClaims(e.target.value)}
+              rows={3}
+              className="mono text-xs"
+              style={{ width: "100%", padding: "8px 0", borderBottom: "1px solid var(--ink-on-b)", background: "none" }}
+            />
+          </label>
+          <div style={{ display: "flex", gap: 12 }}>
+            <button
+              onClick={submitEdit}
+              className="mono text-sm"
+              style={{ color: "#000", background: "var(--lime)", padding: "8px 16px", border: "none", cursor: "pointer" }}
+            >
+              Submit update
+            </button>
+            <button
+              onClick={() => setEditing(false)}
+              className="mono text-sm"
+              style={{ color: "var(--ink-on-b)", background: "none", border: "1px solid var(--ink-on-b)", padding: "8px 16px", cursor: "pointer" }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={startEditing}
+          className="mono text-xs"
+          style={{ marginTop: 12, color: "var(--ink-on-b)", background: "none", border: "none", textDecoration: "underline", cursor: "pointer", padding: 0 }}
+        >
+          Edit claims (owner only)
+        </button>
+      )}
 
       <div style={{ marginTop: 24 }}>
         <p className="mono text-xs" style={{ color: "var(--mute)" }}>
