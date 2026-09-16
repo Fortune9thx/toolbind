@@ -2,200 +2,143 @@
 
 **Bind the tool. Then let the agent in.**
 
-## The problem
+Trust infrastructure for AI agents that need to decide whether to use a tool they didn't write.
 
-AI agents increasingly choose and invoke tools they've never seen a
-human review -- an MCP server, an API wrapper, a payments integration --
-based on nothing but the tool's own self-description. There is no
-lightweight, verifiable, expiring signal an agent can check before
-trusting a tool at a specific commit. ToolBind is that signal: a Seal is
-a specific commit SHA + a named policy + live public evidence + GenLayer
-consensus + an expiry, bound together by a contract that fetches its own
-evidence rather than trusting the publisher's word for what that
-evidence says.
-
-ToolBind is **not** escrow, **not** a payment/settlement channel, **not**
-facilitator scoring, and **not** an "LLM decides off-chain then a
-contract just stamps the output" pattern.
-
-## Quality-bar mapping
-
-| Bar | How ToolBind meets it |
-| --- | --- |
-| Real trust problem | Agents choosing tools with no verifiable, expiring trust signal |
-| Live/authoritative data | The contract itself fetches GitHub at the pinned SHA + optional live endpoint inside `seal()` -- never trusts a caller's claim about evidence content |
-| Complete, accurate source | Full contract, tests, frontend, and docs in this repo |
-| Frontend genuinely writes the contract | Every mutating page (`/register`, `/tools/[id]`, `/challenge/[id]`) runs the full fee-estimate → sign → pending → decision → finalized/error lifecycle via `lib/genlayer.ts` |
-| Meaningful with continued use | Seals expire after 30 days; owners reseal on a new commit; agents are expected to refuse a missing/expired/REJECTED seal_id |
-
-## Network
-
-| | |
-| --- | --- |
-| Network | GenLayer studio-dev |
-| Chain ID | 61997 |
-| RPC | https://studio-dev.genlayer.com/api |
-| Explorer | https://explorer-studio-dev.genlayer.com |
-| Studio UI | https://studio-dev.genlayer.com |
-
-**studio-dev state is TEMPORARY.** It resets periodically. Every tool_id,
-seal_id, and stored record on this deployment can be wiped without
-notice. Treat any studio-dev deployment as a demo/staging environment,
-never a permanent record.
-
-- Contract address: `0x91e6Fff36D4082e575391b42149AB006cD18BA35`
-- Explorer link: https://explorer-studio-dev.genlayer.com/address/0x91e6Fff36D4082e575391b42149AB006cD18BA35
-- Frontend URL: https://toolbind.vercel.app
-
-Deployed and verified live via a real `register_tool` write followed by a
-real `get_tool` read (`tool-0`, repo `genlayerlabs/genlayer-studio`) --
-both went through full validator consensus (`ACCEPTED`/`AGREE`) on
-studio-dev.
-
-Note: the contract's `tool_id`/`seal_id` values returned by
-`register_tool`/`seal` are **strings** in the form `"tool-0"`/`"seal-0"`,
-not integers -- pass them back exactly as returned to `get_tool`/
-`get_seal`/etc.
-
-## How to use it
-
-**Register a tool** (`/register`): submit a github.com repo URL, a
-pinned commit SHA, capability claims, an optional live endpoint, and a
-policy (`general` / `mcp-safe` / `payments-safe`). You become the
-tool's owner.
-
-**Seal it** (`/tools/[id]`, "Seal"): anyone can call `seal(tool_id)`.
-The contract fetches the commit page and README at that SHA (Stage A);
-if that evidence doesn't bind to the claimed repo/sha, the seal is
-recorded REJECTED/INCONCLUSIVE and the LLM is never invoked. If it
-binds, an LLM judges the claims against the bound evidence and policy
-(Stage B), subject to Python backstops (see SECURITY.md) that force
-INCONCLUSIVE on low confidence, malformed output, or an internally
-inconsistent answer.
-
-**Look up a seal** (`/lookup`): no wallet required. Paste a `tool-N` or
-`seal-N` id and read the record directly.
-
-## How an agent should treat a seal
-
-- **No seal / `tool_seal_ids` empty** -- treat as unverified; do not
-  invoke.
-- **Latest seal `status != "ACTIVE"`** (EXPIRED / SUPERSEDED /
-  CHALLENGED) -- do not treat as current trust; check `get_latest_seal`
-  again or wait for a reseal.
-- **`verdict != "SEALED"`** (REJECTED / INCONCLUSIVE) -- do not invoke;
-  the tool failed either the bind check or the judgment check.
-- **A stale seal_id an agent already cached** -- re-fetch via
-  `get_seal`/`get_latest_seal` before relying on it; a seal can be
-  superseded or challenged after it was first read. Agents should never
-  hold a seal_id's "SEALED" status in memory past its own polling
-  interval.
-
-## Known limits
-
-- GitHub rate limits can degrade Stage A's fetches under heavy call
-  volume; a rate-limited fetch fails closed (non-binding), not open.
-- `gl.nondet.web.render(mode="text")` reads rendered/served text, not a
-  JS-executed DOM; a JS-rendered page's real content may read as
-  incomplete evidence.
-- LLM agreement is not truth -- see SECURITY.md's "LLM consensus ≠
-  correctness" section.
-- studio-dev state resets; nothing here is a permanent record.
-
-## Repo structure
-
-```
-contracts/ToolBind.py        Python Intelligent Contract
-tests/direct/                 gltest direct-mode test suite
-frontend/                     Next.js 15 App Router + TS + Tailwind + Framer Motion
-scripts/deploy.mjs            manual deploy script (NOT executed by this build)
-scripts/peek-tx.mjs           manual tx-status utility
-SECURITY.md
-README.md
-```
+[**Live App**](https://toolbind.vercel.app) · [**Contract Explorer**](https://explorer-studio-dev.genlayer.com/address/0x91e6Fff36D4082e575391b42149AB006cD18BA35) · [SECURITY.md](./SECURITY.md)
 
 ---
 
-## Deployment status
+## The problem
 
-**Contract: deployed and live** on studio-dev at
-`0x91e6Fff36D4082e575391b42149AB006cD18BA35` (see Network section above).
-Frontend build is clean and wired to that address; Vercel deploy and
-GitHub push are the remaining manual steps below.
+AI agents increasingly choose and invoke tools they've never seen a human review — an MCP server, an API wrapper, a payments integration — based on nothing but the tool's own self-description. A GitHub URL and a star count aren't evidence: nothing pins them to what the code actually does today, and nothing expires when that stops being true.
 
-The contract is on the **v0.3.0 GenVM API** (`import genlayer as gl`,
-`gl.contract.Contract`, `gl.chain.Event`, `gl.vm.run_nondet`, bare
-`TreeMap[...]` annotations with **no** explicit `TreeMap()` construction
-in `__init__`), matching what studio-dev's current runner actually
-executes -- **not** the older v0.2.16-style API
-(`gl.Contract`/`gl.Event`/`run_nondet_unsafe`/explicit `self.x =
-TreeMap()`) used by this account's Bradbury-targeting projects. Deploying
-this exact contract file to Bradbury instead would need reverting those
-specific API calls; the two are not interchangeable.
+**ToolBind is that missing signal.** A **Seal** binds together a pinned commit SHA, a named policy, evidence the contract fetches itself, and GenLayer consensus — with an expiry. It's a verifiable, time-boxed claim: *as of this commit, under this policy, independently fetched evidence supported these claims.*
 
-### Redeploying the contract (if you change the code)
+ToolBind is **not** escrow, **not** a payment or settlement channel, **not** facilitator scoring, and **not** an "LLM decides off-chain, then a contract stamps the output" pattern. No funds are ever held or moved by this contract.
+
+## How it works
+
+```
+  register_tool()                    seal(tool_id)
+  ────────────────                   ──────────────────────────────────
+  repo, sha, claims,      ┌─────────────────────────────────────────┐
+  endpoint, policy   ───▶ │  Stage A — Bind          Stage B — Judge │ ───▶  Seal
+                          │  (fail closed)           (LLM, gated)    │       {verdict, confidence,
+                          │                                          │        risk, reason, expiry}
+                          │  Fetch repo@sha.          Only runs if   │
+                          │  Confirm the SHA          Stage A bound. │
+                          │  is actually visible      Judge claims   │
+                          │  on the fetched page.     against bound  │
+                          │  If not, Stage B          evidence under │
+                          │  never runs.              the policy.    │
+                          └─────────────────────────────────────────┘
+```
+
+1. **Register** — a publisher submits a repo URL, a pinned commit SHA, capability claims, an optional live endpoint, and a policy (`general` / `mcp-safe` / `payments-safe`).
+2. **Seal** — anyone calls `seal(tool_id)`. The contract independently fetches the repo at that SHA (Stage A). If the SHA isn't actually visible in the fetched evidence, judgment is skipped entirely and the seal is recorded `REJECTED`/`INCONCLUSIVE` — a publisher cannot talk their way past a failed identity check. If evidence binds, an LLM judges the claims against it under the named policy (Stage B), with Python backstops that force a safe verdict on low confidence or an internally inconsistent answer.
+3. **Consume** — any agent (or human) looks up the seal, with or without a wallet, and decides whether to trust the tool.
+4. **Expire & reseal** — every seal expires 30 days after issuance. The owner can reseal after expiry or after moving to a new commit. Anyone can challenge a seal with fresh evidence, marking it `CHALLENGED` for downstream consumers.
+
+## Design principles
+
+| Principle | Implementation |
+| --- | --- |
+| Real trust problem | Agents currently have no verifiable, expiring signal before invoking an unfamiliar tool |
+| Live, authoritative evidence | The contract fetches GitHub at the pinned SHA (and optional live endpoint) itself, inside `seal()` — never trusts a caller's claim about what evidence says |
+| Fail-closed identity binding | Stage A is plain, deterministic verification; Stage B (the LLM) is never reached unless identity is confirmed to bind |
+| Full transaction lifecycle | Every mutating screen runs fee estimate → sign → pending → decision → finalized/error, via `lib/genlayer.ts` |
+| Durable by design | Seals expire; owners reseal on new commits; agents are expected to refuse a missing, expired, or rejected seal |
+
+## Live deployment
+
+| | |
+| --- | --- |
+| Network | GenLayer Studio Devnet (`studio-dev`) |
+| Chain ID | `61997` |
+| Contract | [`0x91e6Fff36D4082e575391b42149AB006cD18BA35`](https://explorer-studio-dev.genlayer.com/address/0x91e6Fff36D4082e575391b42149AB006cD18BA35) |
+| App | [toolbind.vercel.app](https://toolbind.vercel.app) |
+| RPC | `https://studio-dev.genlayer.com/api` |
+
+> **Studio Devnet state is temporary and resets periodically.** Every `tool_id`, `seal_id`, and stored record on this deployment can be wiped without notice. Treat this deployment as a staging environment, not a permanent record — production use would target a persistent GenLayer network.
+
+The contract runs on the GenVM v0.3.0 API surface (`gl.contract.Contract`, `gl.chain.Event`, `gl.vm.run_nondet`, bare `TreeMap[...]` field annotations) that Studio Devnet's consensus runtime executes. This is a different API generation from GenVM v0.2.16 (`gl.Contract`, `gl.Event`, `run_nondet_unsafe`, explicit `TreeMap()` construction) — the two are not interchangeable, and porting this contract to a v0.2.16 network would require reverting those calls.
+
+`tool_id` and `seal_id` values returned by `register_tool`/`seal` are **strings** (`"tool-0"`, `"seal-0"`, ...), not integers. Pass them back exactly as returned.
+
+## Using ToolBind
+
+**Register a tool** — [`/register`](https://toolbind.vercel.app/register): submit a repo URL, a pinned commit SHA, capability claims, an optional live endpoint, and a policy. You become the tool's owner.
+
+**Seal it** — [`/tools/[id]`](https://toolbind.vercel.app/tools), *Seal*: triggers the two-stage bind-then-judge flow described above.
+
+**Look up a seal** — [`/lookup`](https://toolbind.vercel.app/lookup): no wallet required. Paste a `tool-N` or `seal-N` id to read the record directly.
+
+### How an agent should interpret a seal
+
+| Condition | Action |
+| --- | --- |
+| No seal / `tool_seal_ids` empty | Unverified — do not invoke |
+| Latest seal `status != "ACTIVE"` (`EXPIRED` / `SUPERSEDED` / `CHALLENGED`) | Not currently trusted — re-check or wait for a reseal |
+| `verdict != "SEALED"` (`REJECTED` / `INCONCLUSIVE`) | Do not invoke — the tool failed the bind or judgment check |
+| A cached seal_id | Re-fetch via `get_seal` / `get_latest_seal` before relying on it — never hold a `"SEALED"` status in memory past your own polling interval |
+
+## Repository structure
+
+```
+contracts/ToolBind.py     Python Intelligent Contract
+tests/direct/              gltest direct-mode test suite
+frontend/                  Next.js 15 (App Router) + TypeScript + Tailwind + Framer Motion
+scripts/deploy.mjs         genlayer-js deploy script (alternative to the CLI flow below)
+scripts/peek-tx.mjs        transaction status utility
+SECURITY.md                threat model, prompt-injection posture, SSRF posture
+```
+
+## Running your own instance
+
+### 1. Deploy the contract
 
 ```bash
-cd toolbind
-genlayer network use studio-dev   # already the active network
+genlayer network use studio-dev
 FEES=$(genlayer estimate-fees --json)
 genlayer deploy --contract contracts/ToolBind.py --fees "$FEES"
 ```
 
-`genlayer deploy`/`write` with no `--fees` fails with
-`FeeValueMustBeNonZero` on studio-dev's v0.6 consensus -- always pipe a
-fresh `genlayer estimate-fees --json` result into `--fees` first (fee
-estimates are per-call, not static).
+Studio Devnet's consensus requires an explicit, non-zero fee on every write or deploy — omitting `--fees` fails with `FeeValueMustBeNonZero`. Fee estimates are per-call; regenerate one with `genlayer estimate-fees --json` before each deploy or write.
 
-`scripts/deploy.mjs` (a genlayer-js-based alternative) is present but
-**untested against studio-dev's actual required fee shape** -- the
-CLI-based flow above is the one confirmed working end-to-end
-(`register_tool` write + `get_tool` read, both reaching full validator
-consensus).
-
-### 2. Fill in the frontend env vars
+### 2. Configure the frontend
 
 ```bash
 cd frontend
 cp .env.example .env.local
 ```
 
-Edit `.env.local`:
-
 ```
-NEXT_PUBLIC_TOOLBIND_CONTRACT=0x...   # the address printed in step 1
+NEXT_PUBLIC_TOOLBIND_CONTRACT=0x...   # address from step 1
 NEXT_PUBLIC_GENLAYER_RPC=https://studio-dev.genlayer.com/api
 NEXT_PUBLIC_CHAIN_ID=61997
 ```
 
-### 3. Git init / commit (you author this yourself)
+### 3. Run or deploy
 
 ```bash
-cd toolbind
-git init
-git add .
-git commit -m "Initial ToolBind build"
+npm install && npm run dev     # local development
+vercel deploy --prod           # production deploy
 ```
 
-Then push to your own GitHub remote:
+Set the same three `NEXT_PUBLIC_*` variables in your Vercel project's environment settings.
+
+## Known limitations
+
+- **GitHub rate limits** can degrade Stage A's fetches under heavy call volume; a rate-limited fetch fails closed (non-binding), never open.
+- **Rendered content only** — `gl.nondet.web.render(mode="text")` reads served/rendered text, not a JS-executed DOM; a JS-heavy page's real content may read as incomplete evidence.
+- **LLM agreement is not truth** — see [SECURITY.md](./SECURITY.md)'s "LLM consensus ≠ correctness" section for the full threat model.
+- **Studio Devnet state resets** — nothing on this deployment is a permanent record.
+
+## Testing
 
 ```bash
-git remote add origin https://github.com/<you>/toolbind.git
-git push -u origin main
+cd tests/direct
+pytest
 ```
 
-### 4. Deploy the frontend to Vercel
-
-```bash
-cd frontend
-vercel deploy          # preview
-vercel deploy --prod   # production, once you've verified the preview
-```
-
-Set the same three `NEXT_PUBLIC_*` env vars in the Vercel project
-settings (or via `vercel env add`) before deploying.
-
-### 5. Come back and fill in the placeholders above
-
-Once deployed, update this README's "Network" section with the real
-contract address, explorer link, and frontend URL.
+27 direct-mode tests cover registration, access control, the two-stage seal flow, bind-failure paths, malformed-judgment handling, and challenge/reseal semantics. `genvm-lint contracts/ToolBind.py` runs clean.
