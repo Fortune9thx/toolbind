@@ -13,82 +13,83 @@ const NAV_LINKS = [
   { href: "/activity", label: "Activity" },
 ];
 
-/** Persistent lime-frame layout chrome, present on every page. The frame
- * itself never animates after first paint (no infinite pulsing); page
- * transitions get a short lime flicker instead, applied via the
- * AnimatePresence key on pathname. */
+/** Routes rendered on the black field. Everything else is the light
+ * field-b page with the lime perspective floor grid. */
+const DARK_ROUTES = ["/", "/seal", "/activity"];
+
 export function Frame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const dark = pathname === "/";
+  const dark = DARK_ROUTES.some((r) => (r === "/" ? pathname === "/" : pathname.startsWith(r)));
 
   return (
+    // The lime frame itself: a solid 12px band the content never crosses.
     <div
       style={{
-        padding: "12px",
+        padding: "var(--frame-w)",
         minHeight: "100vh",
         background: "var(--frame)",
       }}
     >
       <div
         style={{
-          minHeight: "calc(100vh - 24px)",
+          minHeight: "calc(100vh - (var(--frame-w) * 2))",
           background: dark ? "var(--field-a)" : "var(--field-b)",
-          border: "1px solid var(--frame)",
           position: "relative",
           display: "flex",
           flexDirection: "column",
+          overflow: "hidden",
         }}
       >
-        <header
-          className="flex items-center justify-between px-4 sm:px-6"
-          style={{
-            height: 56,
-            borderBottom: `1px solid ${dark ? "rgba(124,255,77,0.25)" : "rgba(0,0,0,0.1)"}`,
-          }}
-        >
-          <Link href="/" className="flex items-center gap-2">
-            <Logo animate={false} size={18} />
+        <header className="tb-header" style={{ flex: "0 0 auto", position: "relative", zIndex: 20 }}>
+          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Logo animate={false} size={20} />
             <Wordmark dark={dark} />
           </Link>
-          <nav className="hidden sm:flex items-center gap-5 mono text-xs uppercase tracking-wide">
-            {NAV_LINKS.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                style={{
-                  color: pathname.startsWith(l.href)
-                    ? "var(--lime)"
-                    : dark
-                    ? "var(--mute)"
-                    : "var(--ink-on-b)",
-                  opacity: pathname.startsWith(l.href) ? 1 : 0.75,
-                }}
-              >
-                {l.label}
-              </Link>
-            ))}
+
+          <nav className="mono tb-header-nav" style={{ marginLeft: "auto", marginRight: 32 }}>
+            {NAV_LINKS.map((l) => {
+              const active = pathname.startsWith(l.href);
+              return (
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  className="tb-nav-link"
+                  data-active={active}
+                  style={!active && !dark ? { color: "rgba(17,17,17,0.55)" } : undefined}
+                >
+                  {l.label}
+                </Link>
+              );
+            })}
           </nav>
+
           <WalletControl dark={dark} />
         </header>
 
         <AnimatePresence mode="wait">
           <motion.main
             key={pathname}
-            initial={{ opacity: 0.4 }}
+            initial={{ opacity: 0.35 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0.4 }}
-            transition={{ duration: 0.3 }}
-            className="flex-1"
+            exit={{ opacity: 0.35 }}
+            transition={{ duration: 0.28, ease: "easeOut" }}
+            style={{ flex: 1, display: "flex", flexDirection: "column", position: "relative" }}
           >
             {children}
           </motion.main>
         </AnimatePresence>
 
         <footer
-          className="mono text-[11px] px-4 sm:px-6 py-3"
+          className="mono"
           style={{
-            color: "var(--mute)",
-            borderTop: `1px solid ${dark ? "rgba(124,255,77,0.15)" : "rgba(0,0,0,0.08)"}`,
+            flex: "0 0 auto",
+            fontSize: 10,
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+            color: dark ? "rgba(138,138,134,0.9)" : "rgba(17,17,17,0.45)",
+            padding: "14px clamp(16px, 3vw, 32px)",
+            position: "relative",
+            zIndex: 20,
           }}
         >
           studio-dev · chainId 61997 · state resets periodically

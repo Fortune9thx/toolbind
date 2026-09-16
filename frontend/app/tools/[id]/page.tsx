@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { readContract, writeContract, type TxStage } from "@/lib/genlayer";
 import { TxLifecycle } from "@/components/TxLifecycle";
+import { PerspectiveGrid } from "@/components/PerspectiveGrid";
+import { PixelArrow } from "@/components/PixelArrow";
 
 interface ToolRecord {
   tool_id: string;
@@ -60,6 +62,8 @@ export default function ToolDetailPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
+
+  const busy = stage !== "idle" && stage !== "finalized" && stage !== "error";
 
   async function doSeal(fn: "seal" | "reseal") {
     setTxError(null);
@@ -122,111 +126,132 @@ export default function ToolDetailPage() {
   }
 
   return (
-    <div style={{ padding: "40px 24px", maxWidth: 800, margin: "0 auto" }}>
-      <p className="mono text-xs" style={{ color: "var(--mute)" }}>
-        {tool.tool_id}
-      </p>
-      <h1 style={{ fontSize: "1.8rem", fontWeight: 600, color: "var(--ink-on-b)", margin: "4px 0 0" }}>
-        {tool.repo.replace("https://github.com/", "")}
-      </h1>
+    <div style={{ position: "relative", flex: 1 }}>
+      <PerspectiveGrid />
 
-      <dl className="mono text-xs" style={{ marginTop: 24, display: "grid", gap: 10, color: "var(--ink-on-b)" }}>
-        <Row label="Pinned SHA" value={tool.sha} />
-        <Row label="Policy" value={tool.policy} />
-        <Row label="Owner" value={tool.owner} />
-        <Row label="Endpoint" value={tool.endpoint || "(none declared)"} />
-        <Row label="Claims" value={tool.claims} />
-        <Row label="Updated" value={tool.updated_at} />
-      </dl>
-
-      {editing ? (
-        <div style={{ marginTop: 20, display: "grid", gap: 10 }}>
-          <label className="mono text-xs" style={{ color: "var(--mute)" }}>
-            New pinned SHA (must differ from the current one)
-            <input
-              value={editSha}
-              onChange={(e) => setEditSha(e.target.value)}
-              className="mono text-xs"
-              style={{ width: "100%", padding: "8px 0", borderBottom: "1px solid var(--ink-on-b)", background: "none" }}
-            />
-          </label>
-          <label className="mono text-xs" style={{ color: "var(--mute)" }}>
-            Updated claims
-            <textarea
-              value={editClaims}
-              onChange={(e) => setEditClaims(e.target.value)}
-              rows={3}
-              className="mono text-xs"
-              style={{ width: "100%", padding: "8px 0", borderBottom: "1px solid var(--ink-on-b)", background: "none" }}
-            />
-          </label>
-          <div style={{ display: "flex", gap: 12 }}>
-            <button
-              onClick={submitEdit}
-              className="mono text-sm"
-              style={{ color: "#000", background: "var(--lime)", padding: "8px 16px", border: "none", cursor: "pointer" }}
-            >
-              Submit update
-            </button>
-            <button
-              onClick={() => setEditing(false)}
-              className="mono text-sm"
-              style={{ color: "var(--ink-on-b)", background: "none", border: "1px solid var(--ink-on-b)", padding: "8px 16px", cursor: "pointer" }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          onClick={startEditing}
-          className="mono text-xs"
-          style={{ marginTop: 12, color: "var(--ink-on-b)", background: "none", border: "none", textDecoration: "underline", cursor: "pointer", padding: 0 }}
-        >
-          Edit claims (owner only)
-        </button>
-      )}
-
-      <div style={{ marginTop: 24 }}>
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          padding: "clamp(32px, 6vw, 64px) clamp(16px, 4vw, 48px) 80px",
+          maxWidth: 800,
+          margin: "0 auto",
+        }}
+      >
         <p className="mono text-xs" style={{ color: "var(--mute)" }}>
-          LATEST SEAL
+          {tool.tool_id}
         </p>
-        {latestSeal ? (
-          <Link href={`/seal/${latestSeal.seal_id}`} className="mono text-sm" style={{ color: "var(--lime-hot)" }}>
-            {latestSeal.seal_id} — {latestSeal.verdict} ({latestSeal.status}) →
-          </Link>
+        <h1
+          style={{
+            fontSize: "clamp(1.9rem, 4.5vw, 2.6rem)",
+            fontWeight: 600,
+            letterSpacing: "-0.02em",
+            color: "var(--ink-on-b)",
+            margin: "4px 0 0",
+          }}
+        >
+          {tool.repo.replace("https://github.com/", "")}
+        </h1>
+
+        <dl className="mono text-xs" style={{ marginTop: 28, display: "grid", gap: 12, color: "var(--ink-on-b)" }}>
+          <Row label="Pinned SHA" value={tool.sha} />
+          <Row label="Policy" value={tool.policy} />
+          <Row label="Owner" value={tool.owner} />
+          <Row label="Endpoint" value={tool.endpoint || "(none declared)"} />
+          <Row label="Claims" value={tool.claims} />
+          <Row label="Updated" value={tool.updated_at} />
+        </dl>
+
+        {editing ? (
+          <div style={{ marginTop: 28, display: "grid", gap: 20, maxWidth: 480 }}>
+            <label>
+              <span className="hr-label">New pinned SHA (must differ from the current one)</span>
+              <input
+                className="mono hr-field"
+                value={editSha}
+                onChange={(e) => setEditSha(e.target.value)}
+              />
+            </label>
+            <label>
+              <span className="hr-label">Updated claims</span>
+              <textarea
+                className="mono hr-field"
+                value={editClaims}
+                onChange={(e) => setEditClaims(e.target.value)}
+                rows={3}
+              />
+            </label>
+            <div style={{ display: "flex", gap: 28 }}>
+              <button
+                onClick={submitEdit}
+                className="mono tb-cta"
+                data-on-light="true"
+                style={{ border: "none", cursor: "pointer", fontSize: 13, padding: 0 }}
+              >
+                Submit update
+                <PixelArrow size={12} color="currentColor" />
+              </button>
+              <button
+                onClick={() => setEditing(false)}
+                className="mono tb-nav-link"
+                style={{ border: "none", cursor: "pointer", fontSize: 13, padding: 0 }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         ) : (
-          <p className="mono text-xs" style={{ color: "var(--mute)" }}>
-            Not sealed yet.
-          </p>
+          <button
+            onClick={startEditing}
+            className="mono tb-nav-link text-xs"
+            style={{ marginTop: 16, border: "none", cursor: "pointer", padding: 0 }}
+          >
+            Edit claims (owner only)
+          </button>
         )}
-      </div>
 
-      <div style={{ marginTop: 28, display: "flex", gap: 12 }}>
-        <button
-          onClick={() => doSeal("seal")}
-          className="mono text-sm"
-          style={{ color: "#000", background: "var(--lime)", padding: "10px 18px", border: "none", cursor: "pointer" }}
-        >
-          Seal
-        </button>
-        <button
-          onClick={() => doSeal("reseal")}
-          className="mono text-sm"
-          style={{ color: "var(--ink-on-b)", background: "none", border: "1px solid var(--ink-on-b)", padding: "10px 18px", cursor: "pointer" }}
-        >
-          Reseal
-        </button>
-        <Link
-          href={`/challenge/${latestSeal?.seal_id ?? ""}`}
-          className="mono text-sm"
-          style={{ color: "var(--ink-on-b)", padding: "10px 18px", textDecoration: "underline" }}
-        >
-          Challenge latest seal
-        </Link>
-      </div>
+        <div style={{ marginTop: 32 }}>
+          <p className="hr-label" style={{ marginBottom: 8 }}>
+            Latest seal
+          </p>
+          {latestSeal ? (
+            <Link href={`/seal/${latestSeal.seal_id}`} className="mono tb-cta text-sm" data-on-light="true">
+              {latestSeal.seal_id} — {latestSeal.verdict} ({latestSeal.status})
+              <PixelArrow size={11} color="currentColor" />
+            </Link>
+          ) : (
+            <p className="mono text-xs" style={{ color: "var(--mute)" }}>
+              Not sealed yet.
+            </p>
+          )}
+        </div>
 
-      <TxLifecycle functionName="seal" stage={stage} txHash={txHash} error={txError} />
+        <div style={{ marginTop: 36, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 32 }}>
+          <button
+            onClick={() => doSeal("seal")}
+            disabled={busy}
+            className="mono tb-cta"
+            data-on-light="true"
+            style={{ border: "none", cursor: busy ? "default" : "pointer", fontSize: 14, padding: 0, opacity: busy ? 0.5 : 1 }}
+          >
+            Seal
+            <PixelArrow size={12} color="currentColor" />
+          </button>
+          <button
+            onClick={() => doSeal("reseal")}
+            disabled={busy}
+            className="mono tb-nav-link"
+            style={{ border: "none", cursor: busy ? "default" : "pointer", fontSize: 14, padding: 0, opacity: busy ? 0.5 : 1 }}
+          >
+            Reseal
+          </button>
+          <Link href={`/challenge/${latestSeal?.seal_id ?? ""}`} className="mono tb-nav-link text-sm">
+            Challenge latest seal
+          </Link>
+        </div>
+
+        <TxLifecycle functionName="seal" stage={stage} txHash={txHash} error={txError} />
+      </div>
     </div>
   );
 }

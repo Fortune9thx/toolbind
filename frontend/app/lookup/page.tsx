@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { readContract } from "@/lib/genlayer";
+import { PerspectiveGrid } from "@/components/PerspectiveGrid";
+import { PixelArrow } from "@/components/PixelArrow";
 
 export default function LookupPage() {
   const [id, setId] = useState("");
@@ -36,52 +38,92 @@ export default function LookupPage() {
   }
 
   return (
-    <div style={{ padding: "40px 24px", maxWidth: 640, margin: "0 auto" }}>
-      <h1 style={{ fontSize: "1.8rem", fontWeight: 600, color: "var(--ink-on-b)", margin: 0 }}>
-        Lookup
-      </h1>
-      <p className="mono text-xs" style={{ color: "var(--mute)", marginTop: 10 }}>
-        No wallet required. Paste a tool_id (tool-N) or seal_id (seal-N).
-      </p>
+    <div style={{ position: "relative", flex: 1 }}>
+      <PerspectiveGrid />
 
-      <form onSubmit={onLookup} style={{ marginTop: 24, display: "flex", gap: 12 }}>
-        <input
-          className="hr-field"
-          placeholder="tool-0 or seal-0"
-          value={id}
-          onChange={(e) => setId(e.target.value)}
-        />
-        <button
-          type="submit"
-          className="mono text-sm"
-          style={{ color: "#000", background: "var(--lime)", padding: "10px 18px", border: "none", cursor: "pointer" }}
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          padding: "clamp(32px, 6vw, 64px) clamp(16px, 4vw, 48px) 80px",
+          maxWidth: 640,
+          margin: "0 auto",
+        }}
+      >
+        <h1
+          style={{
+            fontSize: "clamp(2rem, 5vw, 2.8rem)",
+            fontWeight: 600,
+            letterSpacing: "-0.02em",
+            color: "var(--ink-on-b)",
+            margin: 0,
+          }}
         >
-          Look up
-        </button>
-      </form>
-
-      {loading && (
-        <p className="mono text-xs" style={{ color: "var(--mute)", marginTop: 16 }}>
-          Loading…
+          Lookup
+        </h1>
+        <p className="mono text-xs" style={{ color: "var(--mute)", marginTop: 12 }}>
+          No wallet required. Paste a tool_id (tool-N) or seal_id (seal-N).
         </p>
-      )}
-      {error && (
-        <p className="mono text-xs" style={{ color: "#c0392b", marginTop: 16 }}>
-          {error}
-        </p>
-      )}
 
-      {record && (
-        <div className="mono text-xs" style={{ marginTop: 24, display: "grid", gap: 8, color: "var(--ink-on-b)" }}>
-          <p style={{ color: "var(--mute)" }}>{kind?.toUpperCase()}</p>
-          {Object.entries(record).map(([k, v]) => (
-            <div key={k} style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 12 }}>
-              <span style={{ color: "var(--mute)" }}>{k}</span>
-              <span style={{ wordBreak: "break-all" }}>{String(v)}</span>
+        <form onSubmit={onLookup} style={{ marginTop: 32, display: "flex", alignItems: "flex-end", gap: 24 }}>
+          <label style={{ flex: 1 }}>
+            <span className="hr-label">ID</span>
+            <input
+              className="mono hr-field"
+              placeholder="tool-0 or seal-0"
+              value={id}
+              onChange={(e) => setId(e.target.value)}
+            />
+          </label>
+          <button
+            type="submit"
+            className="mono tb-cta"
+            data-on-light="true"
+            style={{ border: "none", cursor: "pointer", fontSize: 14, padding: "10px 0" }}
+          >
+            Look up
+            <PixelArrow size={13} color="currentColor" />
+          </button>
+        </form>
+
+        {loading && (
+          <p className="mono text-xs" style={{ color: "var(--mute)", marginTop: 20 }}>
+            Loading…
+          </p>
+        )}
+        {error && (
+          <p className="mono text-xs" style={{ color: "#c0392b", marginTop: 20 }}>
+            {error}
+          </p>
+        )}
+
+        {record && (
+          <div style={{ marginTop: 36 }}>
+            <p className="mono" style={{ color: "var(--lime-hot)", fontSize: 11, letterSpacing: "0.18em" }}>
+              {kind?.toUpperCase()}
+            </p>
+            <div className="mono text-xs" style={{ marginTop: 12, display: "grid", gap: 10, color: "var(--ink-on-b)" }}>
+              {Object.entries(record).map(([k, v]) => (
+                <div
+                  key={k}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "140px 1fr",
+                    gap: 12,
+                    borderBottom: "1px solid rgba(17,17,17,0.08)",
+                    paddingBottom: 8,
+                  }}
+                >
+                  <span style={{ color: "var(--mute)" }}>{k}</span>
+                  <span style={{ wordBreak: "break-all" }}>
+                    {typeof v === "object" ? JSON.stringify(v) : String(v)}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

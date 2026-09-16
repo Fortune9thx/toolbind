@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { readContract } from "@/lib/genlayer";
+import { PixelArrow } from "@/components/PixelArrow";
 
 interface SealRecord {
   seal_id: string;
@@ -24,6 +25,7 @@ interface SealRecord {
 }
 
 const NODES = ["REPO", "SHA", "EVIDENCE", "CONSENSUS", "SEAL"];
+const PATH_D = "M50,58 C 190,10 260,102 400,58 S 620,10 750,58";
 
 export default function SealDetailPage() {
   const params = useParams<{ id: string }>();
@@ -38,7 +40,7 @@ export default function SealDetailPage() {
 
   if (error) {
     return (
-      <div style={{ padding: 40, background: "var(--field-a)", minHeight: "60vh" }}>
+      <div style={{ padding: 40 }}>
         <p className="mono text-xs" style={{ color: "#ff6b6b" }}>
           {error}
         </p>
@@ -48,7 +50,7 @@ export default function SealDetailPage() {
 
   if (!record) {
     return (
-      <div style={{ padding: 40, background: "var(--field-a)", minHeight: "60vh" }}>
+      <div style={{ padding: 40 }}>
         <p className="mono text-xs" style={{ color: "var(--mute)" }}>
           Loading…
         </p>
@@ -59,31 +61,31 @@ export default function SealDetailPage() {
   const filled = record.verdict === "SEALED";
 
   return (
-    <div style={{ padding: "40px 24px", background: "var(--field-a)", minHeight: "80vh" }}>
+    <div style={{ padding: "clamp(32px, 6vw, 56px) clamp(16px, 4vw, 48px) 80px" }}>
       <div style={{ maxWidth: 800, margin: "0 auto" }}>
-        <Link href={`/tools/${record.tool_id}`} className="mono text-xs" style={{ color: "var(--mute)" }}>
+        <Link href={`/tools/${record.tool_id}`} className="mono tb-nav-link text-xs">
           ← {record.tool_id}
         </Link>
 
-        <svg viewBox="0 0 900 100" width="100%" style={{ marginTop: 20 }} aria-hidden="true">
-          <path d="M50,50 C 200,10 300,90 450,50 S 700,10 850,50" fill="none" stroke="rgba(124,255,77,0.3)" strokeWidth={1} />
+        <svg viewBox="0 0 800 110" width="100%" style={{ marginTop: 24, maxWidth: 800 }} aria-hidden="true">
+          <path d={PATH_D} fill="none" stroke="rgba(124,255,77,0.3)" strokeWidth={1} />
           {NODES.map((label, i) => {
-            const x = 50 + i * 200;
+            const x = 50 + i * 175;
             const isSeal = label === "SEAL";
             return (
               <g key={label}>
                 <motion.circle
                   cx={x}
-                  cy={50}
-                  r={6}
-                  fill={isSeal && filled ? "var(--lime)" : "none"}
+                  cy={58}
+                  r={isSeal ? 12 : 5}
+                  fill={isSeal && filled ? "var(--lime)" : isSeal ? "none" : "var(--lime)"}
                   stroke="var(--lime)"
-                  strokeWidth={1}
+                  strokeWidth={isSeal ? 1.5 : 0}
                   initial={isSeal ? { scale: 0.6 } : false}
-                  animate={isSeal && filled ? { scale: [0.6, 1.3, 1] } : {}}
-                  transition={{ duration: 0.6 }}
+                  animate={isSeal ? { scale: [0.6, 1.25, 1] } : {}}
+                  transition={{ duration: 0.55, delay: 0.2 }}
                 />
-                <text x={x} y={78} textAnchor="middle" className="mono" fontSize={10} fill="var(--ink-on-a)">
+                <text x={x} y={86} textAnchor="middle" className="mono" fontSize={10} letterSpacing={1.5} fill="var(--mute)">
                   {label}
                 </text>
               </g>
@@ -91,24 +93,25 @@ export default function SealDetailPage() {
           })}
         </svg>
 
-        <div style={{ marginTop: 32 }}>
+        <div style={{ marginTop: 28, display: "flex", alignItems: "center", gap: 14 }}>
           <span
             className="mono text-xs"
             style={{
               color: filled ? "#000" : "var(--ink-on-a)",
-              background: filled ? "var(--lime)" : "rgba(255,255,255,0.08)",
-              padding: "4px 10px",
+              background: filled ? "var(--lime)" : "transparent",
               border: filled ? "none" : "1px solid var(--mute)",
+              padding: "5px 12px",
+              letterSpacing: "0.08em",
             }}
           >
             {record.verdict}
           </span>
-          <span className="mono text-xs" style={{ marginLeft: 10, color: "var(--mute)" }}>
+          <span className="mono text-xs" style={{ color: "var(--mute)" }}>
             {record.status}
           </span>
         </div>
 
-        <dl className="mono text-xs" style={{ marginTop: 24, display: "grid", gap: 10, color: "var(--ink-on-a)" }}>
+        <dl className="mono text-xs" style={{ marginTop: 28, display: "grid", gap: 12, color: "var(--ink-on-a)" }}>
           <Row label="Seal ID" value={record.seal_id} />
           <Row label="SHA" value={record.sha} />
           <Row label="Policy" value={record.policy} />
@@ -121,16 +124,16 @@ export default function SealDetailPage() {
           {record.challenger && <Row label="Challenger" value={record.challenger} />}
         </dl>
 
-        <div style={{ marginTop: 28, display: "flex", gap: 16 }}>
-          <Link href={`/challenge/${record.seal_id}`} className="mono text-xs" style={{ color: "var(--lime)" }}>
-            Challenge this seal →
+        <div style={{ marginTop: 32, display: "flex", alignItems: "center", gap: 32 }}>
+          <Link href={`/challenge/${record.seal_id}`} className="mono tb-cta text-sm">
+            Challenge this seal
+            <PixelArrow size={12} />
           </Link>
           <a
             href={`https://explorer-studio-dev.genlayer.com/address/${record.tool_id}`}
             target="_blank"
             rel="noreferrer"
-            className="mono text-xs"
-            style={{ color: "var(--mute)" }}
+            className="mono tb-nav-link text-xs"
           >
             Explorer ↗
           </a>
