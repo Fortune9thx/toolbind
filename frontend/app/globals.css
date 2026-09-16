@@ -2,7 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* GenLayer official tokens. One dark system, everywhere -- no theme
+/* GenLayer official tokens (Carbon Void / Kinetic Cobalt / status colors)
+   plus a surface ladder for structural elevation -- no shadows, no theme
    flip between routes. */
 :root {
   --c-cobalt: #110fff;
@@ -16,9 +17,18 @@
   --c-error: #ff2b2b;
   --c-warn: #c4a35a;
 
+  /* Surface ladder: canvas -> panel -> row/input -> hover */
+  --s-canvas: #070707;
+  --s-panel: #111111;
+  --s-row: #161616;
+  --s-hover: #1a1a1a;
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-strong: rgba(255, 255, 255, 0.14);
+
   --radius-card: 12px;
   --radius-pill: 20px;
   --btn-h: 40px;
+  --header-h: 64px;
   --space: 4px;
 }
 
@@ -30,7 +40,7 @@ html,
 body {
   padding: 0;
   margin: 0;
-  background: var(--c-void);
+  background: var(--s-canvas);
   color: var(--c-photon);
   overflow-x: hidden;
 }
@@ -109,7 +119,7 @@ button {
 .gl-btn-secondary {
   background: transparent;
   color: var(--c-photon);
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: var(--hairline-strong);
 }
 .gl-btn-secondary:hover:not(:disabled) {
   border-color: rgba(255, 255, 255, 0.4);
@@ -133,35 +143,46 @@ button {
 }
 
 /* ------------------------------------------------------------------ */
-/* Cards / inputs / badges                                             */
+/* Surfaces -- panel is the base module background; row/input sit one   */
+/* step brighter; hover one step brighter still. Never a drop shadow.  */
 /* ------------------------------------------------------------------ */
 
+.gl-panel {
+  background: var(--s-panel);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+}
+
 .gl-card {
-  background: var(--c-graphite);
-  border: 1.2px solid rgba(255, 255, 255, 0.08);
+  background: var(--s-panel);
+  border: 1px solid var(--hairline);
   border-radius: var(--radius-card);
 }
 
 .gl-input {
   width: 100%;
-  height: 40px;
+  height: 44px;
   padding: 0 14px;
-  background: var(--c-void);
-  border: 1.2px solid rgba(255, 255, 255, 0.12);
+  background: var(--s-row);
+  border: 1px solid var(--hairline-strong);
   border-radius: 8px;
   font-size: 14px;
   color: var(--c-photon);
-  transition: border-color 150ms ease;
+  transition: border-color 150ms ease, background-color 150ms ease;
 }
 .gl-input::placeholder {
   color: var(--c-asphalt);
 }
+.gl-input:hover {
+  background: var(--s-hover);
+}
 .gl-input:focus {
   border-color: var(--c-cobalt);
+  background: var(--s-hover);
 }
 textarea.gl-input {
   height: auto;
-  min-height: 92px;
+  min-height: 96px;
   padding: 10px 14px;
   resize: vertical;
 }
@@ -175,6 +196,12 @@ textarea.gl-input {
   margin-bottom: 6px;
 }
 
+.gl-help {
+  font-size: 12px;
+  color: var(--c-asphalt);
+  margin-top: 6px;
+}
+
 .gl-badge {
   display: inline-flex;
   align-items: center;
@@ -184,7 +211,7 @@ textarea.gl-input {
   text-transform: uppercase;
   padding: 4px 10px;
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--hairline-strong);
   color: var(--c-chassis);
 }
 
@@ -196,7 +223,7 @@ textarea.gl-input {
   display: inline-block;
 }
 
-/* Nav link, used in both the top bar and the sidebar */
+/* Nav link, used in the top bar */
 .gl-nav-link {
   color: var(--c-asphalt);
   transition: color 150ms ease;
@@ -208,28 +235,46 @@ textarea.gl-input {
   color: var(--c-cobalt);
 }
 
+/* Row -- 48-52px, 4px internal micro-grid handled by child gap, color
+   is the ONLY thing that signals state (a colored left edge for
+   selection, a colored dot for status) -- never a filled background
+   used decoratively. */
 .gl-row {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 14px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  min-height: 50px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--hairline);
+  border-left: 2px solid transparent;
+  transition: background-color 120ms ease, border-color 120ms ease;
 }
 .gl-row:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--s-hover);
+}
+.gl-row[data-selected="true"] {
+  background: rgba(17, 15, 255, 0.08);
+  border-left-color: var(--c-cobalt);
 }
 
 /* ------------------------------------------------------------------ */
-/* Top bar -- wraps onto two rows under ~720px instead of clipping     */
+/* Top bar -- sticky, 64px, hairline bottom. Wraps under ~720px        */
+/* instead of clipping.                                                */
 /* ------------------------------------------------------------------ */
 
 .gl-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   display: flex;
   align-items: center;
   justify-content: space-between;
   column-gap: 24px;
-  padding: 16px clamp(16px, 3vw, 32px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  height: var(--header-h);
+  padding: 0 clamp(16px, 3vw, 32px);
+  background: rgba(7, 7, 7, 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--hairline);
 }
 .gl-header-nav {
   display: flex;
@@ -240,14 +285,131 @@ textarea.gl-input {
 }
 @media (max-width: 720px) {
   .gl-header {
+    position: static;
+    height: auto;
     flex-wrap: wrap;
     row-gap: 12px;
+    padding: 14px clamp(16px, 3vw, 32px);
   }
   .gl-header-nav {
     order: 3;
     width: 100%;
     gap: 20px;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Page header -- title left, one primary action right                 */
+/* ------------------------------------------------------------------ */
+
+.gl-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.gl-page-title {
+  font-size: clamp(22px, 3vw, 30px);
+  color: var(--c-photon);
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Split layouts -- class-based only, never mixed with an inline       */
+/* grid-template-columns (inline styles beat media queries and will    */
+/* silently defeat the breakpoint otherwise).                          */
+/* ------------------------------------------------------------------ */
+
+.gl-split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 28px;
+  align-items: start;
+}
+/* Grid items default to a content-based min-width (min-content), not
+   0 -- long unbreakable content (a mono SHA/timestamp, a row of fixed-
+   width pipeline connectors) can silently force a "1fr" track, and the
+   whole page, wider than the viewport without this. */
+.gl-split > * {
+  min-width: 0;
+}
+@media (min-width: 1100px) {
+  .gl-split-58 {
+    grid-template-columns: 58% 1fr;
+  }
+  .gl-split-62 {
+    grid-template-columns: 62% 1fr;
+  }
+  .gl-split-56 {
+    grid-template-columns: 56% 1fr;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Stat strip                                                           */
+/* ------------------------------------------------------------------ */
+
+.gl-stats {
+  display: flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+.gl-stat {
+  flex: 1 1 140px;
+  padding: 16px 20px;
+  border-right: 1px solid var(--hairline);
+}
+.gl-stat:last-child {
+  border-right: none;
+}
+.gl-stat-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-asphalt);
+}
+.gl-stat-value {
+  font-family: var(--font-display), sans-serif;
+  font-weight: 600;
+  font-size: 24px;
+  color: var(--c-photon);
+  margin-top: 4px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Skeleton -- matches the final row's geometry, never the word        */
+/* "loading..."                                                        */
+/* ------------------------------------------------------------------ */
+
+.gl-skeleton {
+  background: linear-gradient(90deg, var(--s-row) 25%, var(--s-hover) 37%, var(--s-row) 63%);
+  background-size: 400% 100%;
+  animation: gl-shimmer 1.6s ease infinite;
+  border-radius: 4px;
+}
+@keyframes gl-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Empty / error state -- lives INSIDE the table/panel chrome, never   */
+/* replaces it.                                                        */
+/* ------------------------------------------------------------------ */
+
+.gl-empty {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 72px 24px;
 }
 
 @media (prefers-reduced-motion: reduce) {
