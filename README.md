@@ -45,7 +45,7 @@ never a permanent record.
 
 - Contract address: `0x91e6Fff36D4082e575391b42149AB006cD18BA35`
 - Explorer link: https://explorer-studio-dev.genlayer.com/address/0x91e6Fff36D4082e575391b42149AB006cD18BA35
-- Frontend URL: `PLACEHOLDER — fill in after Vercel deploy`
+- Frontend URL: https://toolbind.vercel.app
 
 Deployed and verified live via a real `register_tool` write followed by a
 real `get_tool` read (`tool-0`, repo `genlayerlabs/genlayer-studio`) --
