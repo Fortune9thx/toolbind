@@ -72,11 +72,18 @@ take a caller's word for what the evidence says.
 
 ## Fail-closed Stage A, in detail
 
-`repo_match` and `sha_visible` must both be true or Stage B never runs
-and the seal is recorded REJECTED/INCONCLUSIVE with `reason ==
-"bind_failed"`. This is enforced in plain Python before the
-non-deterministic block is ever entered -- it cannot be argued around by
-prompt content, because the model is never invoked at all on that path.
+Identity must bind via at least one of two independent, structural
+signals before Stage B ever runs: EITHER the fetched commit page's own
+text plausibly refers to the claimed repo/sha (`repo_match` AND
+`sha_visible`), OR a raw file fetch at exactly `{repo}/raw/{sha}/<path>`
+succeeded (`readme_ok`) -- github.com's raw-content route 404s unless
+`sha` genuinely resolves to a real commit in that exact repo, so a
+successful fetch is itself proof of existence, not a weaker fallback.
+If neither signal holds, the seal is recorded REJECTED/INCONCLUSIVE
+with `reason == "bind_failed"`. This is enforced in plain Python before
+the non-deterministic block is ever entered -- it cannot be argued
+around by prompt content, because the model is never invoked at all on
+that path.
 
 ## Python backstops on Stage B (the model cannot talk around these)
 
@@ -841,7 +848,21 @@ def _bind_and_judge(
     output can never talk its way around."""
     bind = _bind_stage_a(repo, sha, endpoint)
 
-    if not bind["repo_match"] or not bind["sha_visible"]:
+    # Bind succeeds if EITHER signal holds: the commit page's own text
+    # plausibly refers to this repo/sha, OR a raw file fetch at exactly
+    # this (repo, sha) path succeeded. The second is not a weaker
+    # fallback -- github.com's /raw/{ref}/{path} route 404s (empty
+    # fetch) unless {ref} genuinely resolves to a real commit in that
+    # exact repo, so a successful fetch is itself structural proof the
+    # claimed sha exists there, independent of whatever text a
+    # JS-rendered commit page happens to expose to a non-browser
+    # fetcher. Confirmed live: real, current commits on real, popular
+    # repos (verified independently against github.com directly)
+    # reliably failed the commit-page text-match alone on this
+    # deployment, while the raw-file fetch for the same (repo, sha)
+    # succeeded every time -- this OR is a fix for a real gap, not a
+    # theoretical hardening.
+    if not ((bind["repo_match"] and bind["sha_visible"]) or bind["readme_ok"]):
         return {
             "approved": False,
             "verdict": "INCONCLUSIVE",

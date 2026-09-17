@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { readContract, writeContract, explorerAddressUrl, CONTRACT_ADDRESS, type TxStage } from "@/lib/genlayer";
+import { readContract, writeContract, useToolBindClient, explorerAddressUrl, CONTRACT_ADDRESS, type TxStage } from "@/lib/genlayer";
 import { TxLifecycle } from "@/components/TxLifecycle";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Pipeline } from "@/components/Pipeline";
@@ -33,6 +33,7 @@ type ProbeState = { status: "idle" | "checking" | "ok" | "error"; detail: string
 export default function ToolDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const { client, isConnected } = useToolBindClient();
   const [tool, setTool] = useState<ToolRecord | null>(null);
   const [latestSeal, setLatestSeal] = useState<SealRecord | null>(null);
   const [seals, setSeals] = useState<SealRecord[]>([]);
@@ -120,8 +121,12 @@ export default function ToolDetailPage() {
   async function doSeal(fn: "seal" | "reseal") {
     setTxError(null);
     setTxHash(null);
+    if (!client) {
+      setTxError("Connect a wallet first.");
+      return;
+    }
     try {
-      const { result } = await writeContract(fn, [params.id], {
+      const { result } = await writeContract(client, fn, [params.id], {
         onStage: setStage,
         onTxHash: setTxHash,
         onError: (err) => setTxError(String((err as Error)?.message ?? err)),
@@ -143,8 +148,12 @@ export default function ToolDetailPage() {
   async function submitEdit() {
     setTxError(null);
     setTxHash(null);
+    if (!client) {
+      setTxError("Connect a wallet first.");
+      return;
+    }
     try {
-      await writeContract("update_claims", [params.id, editClaims, editSha], {
+      await writeContract(client, "update_claims", [params.id, editClaims, editSha], {
         onStage: setStage,
         onTxHash: setTxHash,
         onError: (err) => setTxError(String((err as Error)?.message ?? err)),
@@ -201,8 +210,8 @@ export default function ToolDetailPage() {
           <StatusBadge value={sealed ? "SEALED" : latestSeal ? latestSeal.verdict : "UNSEALED"} />
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button onClick={() => doSeal("seal")} disabled={busy} className="gl-btn gl-btn-primary">
-            Seal this tool
+          <button onClick={() => doSeal("seal")} disabled={busy || !isConnected} className="gl-btn gl-btn-primary">
+            {isConnected ? "Seal this tool" : "Connect wallet to seal"}
           </button>
           <a href={tool.repo} target="_blank" rel="noreferrer" className="gl-btn gl-btn-secondary">
             View repo
@@ -235,8 +244,8 @@ export default function ToolDetailPage() {
                 <textarea id="edit-claims" className="gl-input" rows={3} value={editClaims} onChange={(e) => setEditClaims(e.target.value)} />
               </div>
               <div style={{ display: "flex", gap: 12 }}>
-                <button onClick={submitEdit} className="gl-btn gl-btn-primary">
-                  Submit update
+                <button onClick={submitEdit} disabled={!isConnected} className="gl-btn gl-btn-primary">
+                  {isConnected ? "Submit update" : "Connect wallet to update"}
                 </button>
                 <button onClick={() => setEditing(false)} className="gl-btn gl-btn-ghost">
                   Cancel
@@ -349,8 +358,8 @@ export default function ToolDetailPage() {
 
           <div className="gl-panel" style={{ padding: 20, display: "grid", gap: 10 }}>
             {latestSeal && (
-              <button onClick={() => doSeal("reseal")} disabled={busy} className="gl-btn gl-btn-secondary" style={{ width: "100%" }}>
-                Reseal
+              <button onClick={() => doSeal("reseal")} disabled={busy || !isConnected} className="gl-btn gl-btn-secondary" style={{ width: "100%" }}>
+                {isConnected ? "Reseal" : "Connect wallet to reseal"}
               </button>
             )}
             {tool.endpoint && (

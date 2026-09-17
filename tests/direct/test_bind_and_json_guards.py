@@ -52,8 +52,14 @@ def test_bind_fails_when_no_web_mock_registered(contract, direct_vm, tool_id):
 
 
 def test_bind_fails_when_sha_not_visible_on_page(contract, direct_vm, tool_id):
+    # A genuinely nonexistent sha fails BOTH fetches in reality --
+    # github.com's raw-content route 404s for a ref that doesn't
+    # resolve, exactly like the commit page not mentioning it. No
+    # readme mock is registered here (unlike the happy-path tests) so
+    # readme_ok also degrades to False, matching that reality --
+    # otherwise this test would no longer prove what its name claims
+    # once readme_ok became an alternate sufficient bind signal.
     direct_vm.mock_web(re_escape(_commit_url()), {"body": "acme/mcp-tool - a totally different commit"})
-    direct_vm.mock_web(re_escape(_readme_url()), {"body": "# mcp-tool"})
     direct_vm.mock_llm(".*", llm_response({
         "approved": True, "verdict": "SEALED", "confidence": "0.99",
         "risk": "low", "reason": "should never be reached",
@@ -66,8 +72,9 @@ def test_bind_fails_when_sha_not_visible_on_page(contract, direct_vm, tool_id):
 
 
 def test_bind_fails_when_repo_not_matched(contract, direct_vm, tool_id):
+    # Same reasoning as above: a real repo/sha mismatch fails the raw
+    # fetch too, so no readme mock is registered.
     direct_vm.mock_web(re_escape(_commit_url()), {"body": f"commit {SHA[:7]} - some-other-repo"})
-    direct_vm.mock_web(re_escape(_readme_url()), {"body": "# mcp-tool"})
     direct_vm.mock_llm(".*", llm_response({
         "approved": True, "verdict": "SEALED", "confidence": "0.99",
         "risk": "low", "reason": "should never be reached",

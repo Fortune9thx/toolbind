@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Frame } from "@/components/Frame";
+import { Providers } from "@/components/Providers";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-display",
@@ -20,7 +21,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable}`}>
-        <Frame>{children}</Frame>
+        <Providers>
+          <Frame>{children}</Frame>
+        </Providers>
       </body>
     </html>
   );

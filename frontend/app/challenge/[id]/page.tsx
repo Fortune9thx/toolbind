@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { writeContract, type TxStage } from "@/lib/genlayer";
+import { writeContract, useToolBindClient, type TxStage } from "@/lib/genlayer";
 import { TxLifecycle } from "@/components/TxLifecycle";
 
 export default function ChallengePage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const { client, isConnected } = useToolBindClient();
   const [evidenceUrl, setEvidenceUrl] = useState("");
   const [stage, setStage] = useState<TxStage>("idle");
   const [txHash, setTxHash] = useState<string | null>(null);
@@ -17,8 +18,12 @@ export default function ChallengePage() {
     e.preventDefault();
     setError(null);
     setTxHash(null);
+    if (!client) {
+      setError("Connect a wallet first.");
+      return;
+    }
     try {
-      await writeContract("challenge", [params.id, evidenceUrl.trim()], {
+      await writeContract(client, "challenge", [params.id, evidenceUrl.trim()], {
         onStage: setStage,
         onTxHash: setTxHash,
         onError: (err) => setError(String((err as Error)?.message ?? err)),
@@ -63,8 +68,8 @@ export default function ChallengePage() {
             onChange={(e) => setEvidenceUrl(e.target.value)}
           />
         </div>
-        <button type="submit" disabled={busy} className="gl-btn gl-btn-primary" style={{ width: "fit-content" }}>
-          Submit challenge
+        <button type="submit" disabled={busy || !isConnected} className="gl-btn gl-btn-primary" style={{ width: "fit-content" }}>
+          {isConnected ? "Submit challenge" : "Connect wallet to submit"}
         </button>
       </form>
 

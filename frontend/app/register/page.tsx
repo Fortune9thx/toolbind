@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { writeContract, type TxStage } from "@/lib/genlayer";
+import { writeContract, useToolBindClient, type TxStage } from "@/lib/genlayer";
 import { TxLifecycle } from "@/components/TxLifecycle";
 import { CertificatePreview } from "@/components/CertificatePreview";
 
@@ -14,6 +14,7 @@ const POLICIES = [
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { client, isConnected } = useToolBindClient();
   const [repo, setRepo] = useState("");
   const [sha, setSha] = useState("");
   const [claims, setClaims] = useState("");
@@ -28,8 +29,13 @@ export default function RegisterPage() {
     e.preventDefault();
     setError(null);
     setTxHash(null);
+    if (!client) {
+      setError("Connect a wallet first.");
+      return;
+    }
     try {
       const { result } = await writeContract(
+        client,
         "register_tool",
         [repo.trim(), sha.trim(), claims.trim(), endpoint.trim(), policy],
         {
@@ -38,7 +44,7 @@ export default function RegisterPage() {
           onError: (err) => setError(String((err as Error)?.message ?? err)),
         }
       );
-      const newId = typeof result === "string" ? result : (result as any)?.data ?? null;
+      const newId = typeof result === "string" ? result : null;
       if (newId) router.push(`/tools/${newId}`);
     } catch {
       // handled via onError
@@ -174,8 +180,8 @@ export default function RegisterPage() {
             <button type="button" onClick={() => router.back()} className="gl-btn gl-btn-ghost">
               Cancel
             </button>
-            <button type="submit" disabled={busy} className="gl-btn gl-btn-primary">
-              Register tool
+            <button type="submit" disabled={busy || !isConnected} className="gl-btn gl-btn-primary">
+              {isConnected ? "Register tool" : "Connect wallet to register"}
             </button>
           </div>
         </form>

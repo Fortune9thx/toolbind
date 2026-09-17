@@ -1,50 +1,42 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
-/** Connect-wallet pill. Reads window.ethereum directly -- no second
- * wallet stack layered on top of the existing genlayer-js/viem path. */
+/** Connect-wallet pill, backed by RainbowKit's ConnectButton.Custom so it
+ * works with every connector type (injected, WalletConnect, Coinbase
+ * Smart Wallet, Safe) instead of only a single window.ethereum extension --
+ * styled with this app's own .gl-btn classes rather than RainbowKit's
+ * default look. */
 export function WalletControl() {
-  const [address, setAddress] = useState<string | null>(null);
-  const [connecting, setConnecting] = useState(false);
-
-  useEffect(() => {
-    const eth = (window as any).ethereum;
-    if (!eth) return;
-    eth
-      .request({ method: "eth_accounts" })
-      .then((accts: string[]) => setAddress(accts?.[0] ?? null))
-      .catch(() => {});
-  }, []);
-
-  async function connect() {
-    const eth = (window as any).ethereum;
-    if (!eth) {
-      alert("No injected wallet found. Install MetaMask to continue.");
-      return;
-    }
-    setConnecting(true);
-    try {
-      const accts: string[] = await eth.request({ method: "eth_requestAccounts" });
-      setAddress(accts?.[0] ?? null);
-    } catch {
-      // user rejected -- no-op
-    } finally {
-      setConnecting(false);
-    }
-  }
-
   return (
-    <button
-      onClick={connect}
-      className={`gl-btn ${address ? "gl-btn-secondary" : "gl-btn-primary"} mono`}
-      style={{ fontSize: 13 }}
-    >
-      {address
-        ? `${address.slice(0, 6)}…${address.slice(-4)}`
-        : connecting
-        ? "Connecting…"
-        : "Connect wallet"}
-    </button>
+    <ConnectButton.Custom>
+      {({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
+        const ready = mounted;
+        const connected = ready && account && chain;
+
+        return (
+          <div
+            {...(!ready && {
+              "aria-hidden": true,
+              style: { opacity: 0, pointerEvents: "none", userSelect: "none" },
+            })}
+          >
+            {!connected ? (
+              <button onClick={openConnectModal} className="gl-btn gl-btn-primary mono" style={{ fontSize: 13 }}>
+                Connect wallet
+              </button>
+            ) : chain.unsupported ? (
+              <button onClick={openChainModal} className="gl-btn gl-btn-destructive mono" style={{ fontSize: 13 }}>
+                Wrong network
+              </button>
+            ) : (
+              <button onClick={openAccountModal} className="gl-btn gl-btn-secondary mono" style={{ fontSize: 13 }}>
+                {account.displayName}
+              </button>
+            )}
+          </div>
+        );
+      }}
+    </ConnectButton.Custom>
   );
 }

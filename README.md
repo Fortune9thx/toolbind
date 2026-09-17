@@ -4,7 +4,7 @@
 
 Trust infrastructure for AI agents that need to decide whether to use a tool they didn't write.
 
-[**Live App**](https://toolbind.vercel.app) · [**Contract Explorer**](https://explorer-studio-dev.genlayer.com/address/0x0a2813d5fCC663b4F95fCf2c77e5D509104663b6) · [SECURITY.md](./SECURITY.md)
+[**Live App**](https://toolbind.vercel.app) · [**Contract Explorer**](https://explorer-studio-dev.genlayer.com/address/0x70Bb4A318Bb143167e065483A39e581CCB7fe868) · [SECURITY.md](./SECURITY.md)
 
 ---
 
@@ -55,7 +55,7 @@ ToolBind is **not** escrow, **not** a payment or settlement channel, **not** fac
 | --- | --- |
 | Network | GenLayer Studio Devnet (`studio-dev`) |
 | Chain ID | `61997` |
-| Contract | [`0x0a2813d5fCC663b4F95fCf2c77e5D509104663b6`](https://explorer-studio-dev.genlayer.com/address/0x0a2813d5fCC663b4F95fCf2c77e5D509104663b6) |
+| Contract | [`0x70Bb4A318Bb143167e065483A39e581CCB7fe868`](https://explorer-studio-dev.genlayer.com/address/0x70Bb4A318Bb143167e065483A39e581CCB7fe868) |
 | App | [toolbind.vercel.app](https://toolbind.vercel.app) |
 | RPC | `https://studio-dev.genlayer.com/api` |
 
