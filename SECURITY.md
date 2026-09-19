@@ -96,6 +96,45 @@ supports them." Treat a SEALED verdict as a floor, not a certification.
   `gl.message.sender_address.as_hex` against the stored owner hex,
   case-insensitively.
 
+## Reseal freshness cannot be bypassed via seal()
+
+`seal()` is itself a public, permissionless entry point -- a freshness
+check that lived only in `reseal()`'s wrapper could be bypassed
+completely by calling `seal()` directly, letting anyone re-seal an
+unchanged, still-fresh sha as often as they liked. The freshness gate
+(`_freshness_gate`: a repeat seal is blocked unless the latest seal has
+expired or the tool's sha has changed since it was issued) is enforced
+inside `seal()` itself; `reseal()` delegates to `seal()` after its own
+owner check, so both entry points funnel through the same gate.
+
+## Expiry is recomputed at every read, never trusted from storage
+
+A seal's `status` field is written once, at `seal()` time, and is never
+updated by the passage of time alone. `get_seal` and `get_latest_seal`
+lazily recompute `EXPIRED` from `elapsed(now, created_at)` on every call
+(`_effective_status`) rather than returning whatever was last written --
+otherwise a seal that had simply aged past its 30-day lifetime would
+keep reading back as `ACTIVE` forever, and any downstream consumer
+(including this project's own frontend, which gates trust on
+`verdict == SEALED and status == ACTIVE`) would keep treating it as
+currently trusted. `SUPERSEDED` and `CHALLENGED` are left as-is by this
+recomputation -- both are permanent, time-independent facts about a
+specific seal record, not something expiry should silently overwrite.
+
+## Challenge evidence is verified before it changes trust status
+
+`challenge(seal_id, evidence_url)` cannot flip a seal's status on a
+bare, unverified caller string. It (1) rejects an SSRF-shaped
+`evidence_url` with the same guard `register_tool` applies to
+`endpoint`, and (2) actually fetches it under consensus -- every
+validator independently fetches and must agree it resolved to
+non-empty content -- before accepting the challenge, the same "a
+successful fetch is structural proof" principle Stage A already uses
+for identity binding. An unreachable or dead `evidence_url` cannot move
+a seal's trust status. A second `challenge()` call against an
+already-`CHALLENGED` seal is rejected outright, so repeated challenge
+spam cannot silently overwrite the original challenger's evidence.
+
 ## Append-only history
 
 `seals` and `tool_seal_ids` are never edited or deleted, only appended

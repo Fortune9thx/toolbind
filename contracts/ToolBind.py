@@ -98,6 +98,38 @@ that path.
    model response degrades consensus's *outcome*, it never crashes
    consensus itself.
 
+## Steward-review fixes: expiry, reseal freshness, and challenge evidence
+
+Three real gaps found by an external review pass, all fixed at the same
+time they were reported:
+
+1. **Expiry is now computed at every consumer-facing read, not trusted
+   from storage.** `status` was written once at seal() time and never
+   updated by the passage of time alone, so a seal that had simply aged
+   past `SEAL_LIFETIME_SECONDS` kept reading back as "ACTIVE" from
+   `get_seal`/`get_latest_seal` forever -- every downstream consumer
+   (including this app's own frontend, which gates on
+   `verdict == SEALED and status == ACTIVE`) would keep treating an
+   expired seal as currently trusted. `_effective_status` /
+   `_with_effective_status` recompute EXPIRED lazily on every read.
+2. **The reseal freshness rule now lives inside `seal()` itself, not
+   only in `reseal()`'s wrapper.** `seal()` is itself a public,
+   permissionless entry point -- a freshness check that lived only in
+   `reseal()` could be bypassed completely by calling `seal()` directly,
+   letting anyone re-seal an unchanged, still-fresh sha as often as they
+   liked. `_freshness_gate` is now called from `seal()`, and `reseal()`
+   delegates to `seal()` after its own owner check, so both entry points
+   funnel through the same gate.
+3. **`challenge()` no longer flips a seal's trust status on a bare,
+   unverified string.** It now (a) SSRF-guards `evidence_url` with the
+   same check `register_tool` applies to `endpoint`, (b) actually
+   fetches it under consensus and requires non-empty content before
+   accepting it -- the same "a successful fetch is structural proof"
+   principle `_bind_stage_a` already uses for identity binding -- and
+   (c) rejects a second challenge against an already-CHALLENGED seal,
+   so repeated challenge calls cannot silently overwrite the original
+   challenger's evidence.
+
 Full storage/method/view surface, threat model, and toolchain notes: see
 README.md and SECURITY.md in this repository.
 """
@@ -429,12 +461,23 @@ class ToolBind(gl.contract.Contract):
         only if bound, Stage B (LLM judgment against policy). Always
         appends a new, immutable seal record -- even a failed bind
         produces a REJECTED/INCONCLUSIVE seal, so the attempt itself is
-        part of the tool's permanent, append-only history."""
+        part of the tool's permanent, append-only history.
+
+        The freshness gate (a repeat seal is only allowed once the
+        latest seal has expired or the tool's sha has changed) is
+        enforced HERE, not only in reseal()'s wrapper -- seal() is
+        itself a public, permissionless entry point, so a check that
+        lived only in reseal() could be bypassed entirely by calling
+        seal() directly. reseal() now delegates to this same method
+        after its own owner check, so both paths funnel through one
+        gate that cannot be bypassed by the entry point chosen."""
         tool_id = tool_id.strip()
         raw = self.tools.get(tool_id)
         if raw is None:
             raise gl.vm.UserError(f"no tool found for id: {tool_id!r}")
         tool = json.loads(raw)
+
+        self._freshness_gate(tool, tool_id)
 
         repo = tool["repo"]
         sha = tool["sha"]
@@ -527,26 +570,97 @@ class ToolBind(gl.contract.Contract):
         SealIssued(tool_id, seal_id, verdict, confidence=confidence, risk=risk).emit()
         return seal_id
 
+    def _freshness_gate(self, tool: dict, tool_id: str) -> None:
+        """Raises if a new seal is blocked by the freshness rule. A
+        tool's first seal (no prior seals yet) is always allowed.
+        Otherwise a new seal is blocked unless the latest seal has
+        expired or the tool's sha has changed since that seal was
+        issued -- called from seal() itself so it applies uniformly no
+        matter which public entry point (seal() or reseal()) a caller
+        used, and so repeat calls against an unchanged, still-fresh sha
+        cannot be spammed by anyone."""
+        prior_ids_raw = self.tool_seal_ids.get(tool_id)
+        prior_ids = json.loads(prior_ids_raw) if prior_ids_raw else []
+        if not prior_ids:
+            return
+        latest_raw = self.seals.get(prior_ids[-1])
+        if latest_raw is None:
+            return
+        latest = json.loads(latest_raw)
+        expired = _elapsed_seconds(_now_iso(), latest["created_at"]) >= SEAL_LIFETIME_SECONDS
+        sha_changed = str(latest["sha"]).lower() != str(tool["sha"]).lower()
+        if not expired and not sha_changed:
+            raise gl.vm.UserError(
+                "a new seal requires the latest seal to be expired or the "
+                "tool's sha to have changed since it was issued"
+            )
+
     # -----------------------------------------------------------------
     # Public write: challenge
     # -----------------------------------------------------------------
     @gl.public.write
     def challenge(self, seal_id: str, evidence_url: str) -> None:
-        """Public but guarded: cannot challenge a nonexistent seal.
-        Records the challenge and marks the seal CHALLENGED -- it does
-        not itself re-run judgment or overturn the seal; a challenge is
-        a visible flag for any downstream agent or the owner (who can
-        `reseal` once the sha changes or the seal expires)."""
+        """Public but guarded: cannot challenge a nonexistent seal, an
+        already-challenged seal, or with an evidence_url that is not
+        even a live, fetchable page.
+
+        A seal's `status` is a trust signal every downstream consumer
+        reads -- flipping it to CHALLENGED must not be possible on the
+        strength of a caller's bare, unverified string alone. Before
+        this method changes anything, it (1) rejects an SSRF-shaped
+        evidence_url with the same guard register_tool applies to
+        `endpoint`, and (2) fetches that URL for real, under consensus
+        (every validator fetches independently and must agree it
+        resolved to non-empty content), exactly the same "a successful
+        fetch is itself structural proof" principle _bind_stage_a
+        already uses -- an unreachable or dead evidence_url proves
+        nothing and must not be able to move a seal's trust status.
+
+        Does not itself re-run judgment or overturn the seal; a
+        validated challenge is a visible flag for any downstream agent
+        or the owner (who can `reseal` once the sha changes or the seal
+        expires). Only the first challenge against a given seal is
+        accepted -- a second challenge() call against an
+        already-CHALLENGED seal is rejected rather than silently
+        overwriting the first challenger's evidence, so repeated
+        challenge spam cannot churn or bury the original flag."""
         seal_id = seal_id.strip()
         raw = self.seals.get(seal_id)
         if raw is None:
             raise gl.vm.UserError(f"no seal found for id: {seal_id!r}")
         seal_record = json.loads(raw)
 
+        if seal_record.get("status") == "CHALLENGED":
+            raise gl.vm.UserError(f"seal {seal_id!r} has already been challenged")
+
         evidence_url = evidence_url.strip()
         if not evidence_url or len(evidence_url) > MAX_EVIDENCE_URL_CHARS:
             raise gl.vm.UserError(
                 f"evidence_url must be non-empty and at most {MAX_EVIDENCE_URL_CHARS} chars"
+            )
+        if not (evidence_url.startswith("https://") or evidence_url.startswith("http://")):
+            raise gl.vm.UserError("evidence_url must be an http(s) URL")
+        unsafe_reason = _unsafe_host_reason(evidence_url)
+        if unsafe_reason is not None:
+            raise gl.vm.UserError(f"evidence_url rejected: {unsafe_reason}")
+
+        def leader_fn() -> bool:
+            return _evidence_reachable(evidence_url)
+
+        def validator_fn(leader_result) -> bool:
+            if not isinstance(leader_result, gl.vm.Return):
+                return False
+            try:
+                mine = leader_fn()
+            except Exception:  # noqa: BLE001
+                return False
+            return mine == bool(leader_result.calldata)
+
+        evidence_ok = gl.vm.run_nondet(leader_fn, validator_fn)
+        if not evidence_ok:
+            raise gl.vm.UserError(
+                "evidence_url could not be fetched -- challenge evidence must "
+                "be a live, reachable page"
             )
 
         challenger = gl.message.sender_address
@@ -562,12 +676,11 @@ class ToolBind(gl.contract.Contract):
     # -----------------------------------------------------------------
     @gl.public.write
     def reseal(self, tool_id: str) -> str:
-        """Owner-only. Allowed only once the tool's latest seal has
-        expired, OR the tool's current sha differs from that seal's
-        pinned sha (i.e. update_claims moved it to a new commit) --
-        otherwise rejected, since re-running Stage A/B against
-        unchanged, still-fresh evidence would just burn consensus cycles
-        for no new information."""
+        """Owner-only wrapper around seal(). The freshness rule itself
+        (latest seal expired, or the tool's sha has changed) is enforced
+        inside seal() -- see _freshness_gate -- so it applies the same
+        way here as it does to a direct seal() call; this method's own
+        job is only the owner check."""
         tool_id = tool_id.strip()
         raw = self.tools.get(tool_id)
         if raw is None:
@@ -577,20 +690,6 @@ class ToolBind(gl.contract.Contract):
         sender = gl.message.sender_address.as_hex
         if sender.lower() != tool["owner"].lower():
             raise gl.vm.UserError("only the tool owner may reseal")
-
-        prior_ids_raw = self.tool_seal_ids.get(tool_id)
-        prior_ids = json.loads(prior_ids_raw) if prior_ids_raw else []
-        if prior_ids:
-            latest_raw = self.seals.get(prior_ids[-1])
-            latest = json.loads(latest_raw) if latest_raw else None
-            if latest is not None:
-                expired = _elapsed_seconds(_now_iso(), latest["created_at"]) >= SEAL_LIFETIME_SECONDS
-                sha_changed = str(latest["sha"]).lower() != str(tool["sha"]).lower()
-                if not expired and not sha_changed:
-                    raise gl.vm.UserError(
-                        "reseal requires the latest seal to be expired or the "
-                        "tool's sha to have changed since it was issued"
-                    )
 
         return self.seal(tool_id)
 
@@ -609,7 +708,7 @@ class ToolBind(gl.contract.Contract):
         raw = self.seals.get(seal_id.strip())
         if raw is None:
             raise gl.vm.UserError(f"no seal found for id: {seal_id!r}")
-        return raw
+        return json.dumps(_with_effective_status(json.loads(raw)))
 
     @gl.public.view
     def get_latest_seal(self, tool_id: str) -> str:
@@ -620,7 +719,7 @@ class ToolBind(gl.contract.Contract):
         raw = self.seals.get(ids[-1])
         if raw is None:
             raise gl.vm.UserError(f"no seal found for id: {ids[-1]!r}")
-        return raw
+        return json.dumps(_with_effective_status(json.loads(raw)))
 
     @gl.public.view
     def list_seals(self, tool_id: str) -> str:
@@ -643,6 +742,34 @@ class ToolBind(gl.contract.Contract):
 # ---------------------------------------------------------------------------
 
 
+def _effective_status(seal_record: dict, now_iso: str) -> str:
+    """Returns the seal's status as of `now_iso`, lazily recomputing
+    EXPIRED from elapsed time instead of trusting the stored `status`
+    field -- that field is only ever written once, at seal() time (and
+    when a later seal supersedes it), so a seal that has simply aged
+    past SEAL_LIFETIME_SECONDS since then keeps reading back as whatever
+    it was written as (usually "ACTIVE") forever unless something else
+    recomputes it. Every consumer-facing read (get_seal,
+    get_latest_seal) must go through this, or an expired seal is
+    silently still reported -- and treated -- as currently trusted.
+    SUPERSEDED and CHALLENGED are left as-is: SUPERSEDED is a permanent
+    historical fact about a specific record, not a function of time, and
+    a CHALLENGED seal is already a distrust signal in its own right that
+    expiry should not paper over by relabeling it."""
+    stored = seal_record.get("status", "ACTIVE")
+    if stored in ("SUPERSEDED", "CHALLENGED"):
+        return stored
+    if _elapsed_seconds(now_iso, seal_record.get("created_at", "")) >= SEAL_LIFETIME_SECONDS:
+        return "EXPIRED"
+    return stored
+
+
+def _with_effective_status(seal_record: dict) -> dict:
+    patched = dict(seal_record)
+    patched["status"] = _effective_status(seal_record, _now_iso())
+    return patched
+
+
 def _expiry_from(created_at_iso: str) -> str:
     ts = _parse_iso(created_at_iso)
     if ts <= 0:
@@ -659,6 +786,22 @@ def _render(url: str) -> str:
     ever embedded as inert text inside a fenced prompt block."""
     fetched = gl.nondet.web.render(url, mode="text")
     return str(fetched)[:MAX_FETCHED_CHARS]
+
+
+def _evidence_reachable(url: str) -> bool:
+    """Used by challenge(): fetches `url` for real and returns whether
+    it resolved to non-empty content. This is deliberately a bare
+    reachability check, not a judgment of what the evidence says --
+    challenge() only ever needs structural proof the caller's
+    evidence_url is a live page, mirroring _bind_stage_a's readme_ok
+    check, not an LLM opinion about its contents. Any fetch failure
+    degrades to False rather than raising, matching every other fetch
+    in this contract."""
+    try:
+        text = _render(url)
+    except Exception:  # noqa: BLE001
+        return False
+    return bool(text.strip())
 
 
 def _bind_stage_a(repo: str, sha: str, endpoint: str) -> dict:

@@ -45,7 +45,7 @@ export const RPC_URL =
 // chain 61997 is the same network either name resolves to.
 export const NETWORK_LABEL = "Studio Next";
 export const CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_TOOLBIND_CONTRACT ??
-  "0x70Bb4A318Bb143167e065483A39e581CCB7fe868") as `0x${string}`;
+  "0x659F653f4dEc47a2Fedb2A11B11a1894efF71fac") as `0x${string}`;
 
 // genlayer-js@2.0.0-rc.1's packaged studioDevnet preset already carries
 // the exact chain id (61997) and RPC (https://studio-dev.genlayer.com/api)

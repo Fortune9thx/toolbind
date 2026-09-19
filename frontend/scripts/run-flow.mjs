@@ -51,7 +51,7 @@ console.error(`Decrypted OK. Address: ${account.address}`);
 
 const CHAIN_ID = 61997;
 const RPC_URL = "https://studio-dev.genlayer.com/api";
-const CONTRACT = "0x70Bb4A318Bb143167e065483A39e581CCB7fe868";
+const CONTRACT = "0x659F653f4dEc47a2Fedb2A11B11a1894efF71fac";
 
 const chain = { ...studioDevnet, id: CHAIN_ID, rpcUrls: { default: { http: [RPC_URL] } } };
 const client = createClient({ chain, account });

@@ -48,20 +48,30 @@ export default function RegistryPage() {
       try {
         const found: Row[] = [];
         for (let i = 0; i < 200; i++) {
-          try {
-            const raw = await readContract<string>("get_tool", [`tool-${i}`]);
-            const tool: ToolRecord = JSON.parse(raw);
-            let latestSeal: SealRecord | null = null;
+          // get_tool throws both for "this id was never registered" (the
+          // real stop condition) and for a transient RPC hiccup on a
+          // freshly-written id -- confirmed live: a tool_id that just
+          // accepted its register_tool tx can briefly fail this exact
+          // read before becoming visible. One retry after a short delay
+          // tells the two apart without needing a contract-side count.
+          let raw: string | null = null;
+          for (let attempt = 0; attempt < 2 && raw === null; attempt++) {
             try {
-              const sealRaw = await readContract<string>("get_latest_seal", [tool.tool_id]);
-              latestSeal = JSON.parse(sealRaw);
+              raw = await readContract<string>("get_tool", [`tool-${i}`]);
             } catch {
-              latestSeal = null;
+              if (attempt === 0) await new Promise((r) => setTimeout(r, 1200));
             }
-            found.push({ ...tool, latestSeal });
-          } catch {
-            break;
           }
+          if (raw === null) break;
+          const tool: ToolRecord = JSON.parse(raw);
+          let latestSeal: SealRecord | null = null;
+          try {
+            const sealRaw = await readContract<string>("get_latest_seal", [tool.tool_id]);
+            latestSeal = JSON.parse(sealRaw);
+          } catch {
+            latestSeal = null;
+          }
+          found.push({ ...tool, latestSeal });
         }
         if (!cancelled) {
           setTools(found);
